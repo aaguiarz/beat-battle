@@ -19,7 +19,7 @@ export async function ensurePlayer(): Promise<string> {
   const Spotify = await loadSpotifySDK();
   if (!player) {
     player = new Spotify.Player({
-      name: 'Spot-the-Track Web Player',
+      name: 'Beat Battle Web Player',
       getOAuthToken: (cb: (token: string) => void) => cb(token),
       volume: 0.8
     });

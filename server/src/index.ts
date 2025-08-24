@@ -70,7 +70,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.get('/api/version', (_req, res) => {
-  res.json({ name: 'spot-the-track-server', version: '0.0.1' });
+  res.json({ name: 'beat-battle-server', version: '0.0.1' });
 });
 
 // Build the Spotify authorization URL
@@ -578,7 +578,7 @@ if (webDistPath) {
   // Fallback root route
   app.get('/', (req, res) => {
     res.json({
-      message: 'Spot-the-Track API Server',
+      message: 'Beat Battle API Server',
       version: '0.0.1',
       note: 'Web app not found - serving API only'
     });

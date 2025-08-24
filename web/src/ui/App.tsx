@@ -279,237 +279,330 @@ export function App() {
 
   if (currentPath === '/game') {
     return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24, maxWidth: 720 }}>
-      <h1>Spot-the-Track</h1>
-      <p>Group: <strong>{group}</strong></p>
-      <section style={{ marginTop: 8, color: '#555' }}>
-        Share this code with your friends to join: <code style={{ fontWeight: 700 }}>{group}</code>
-        <button title="Copy group code" style={{ marginLeft: 8 }} onClick={async () => {
-          await navigator.clipboard.writeText(group);
-          setToast('Group code copied');
-          setTimeout(() => setToast(null), 2000);
-        }}>Copy</button>
-      </section>
-      <section style={{ marginTop: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <button title="Toggle QR code" onClick={() => setQrVisible((v) => !v)}>{qrVisible ? 'Hide QR' : 'Show QR'}</button>
-          <input readOnly value={shareLink} style={{ width: 360 }} />
-          <button title="Copy join link" onClick={async () => {
-            await navigator.clipboard.writeText(shareLink);
-            setToast('Join link copied');
-            setTimeout(() => setToast(null), 2000);
-          }}>Copy Link</button>
-        </div>
-        {qrVisible && (
-          <div style={{ marginTop: 8 }}>
-            {qrDataUrl ? <img src={qrDataUrl} alt="Join QR" width={256} height={256} /> : <span>Generating QR…</span>}
-            {window.location.hostname === '127.0.0.1' && (
-              <div style={{ marginTop: 8, color: '#a00' }}>
-                Note: 127.0.0.1 works only on this device. For others on your network, set WEB_URL and open the app using your LAN IP.
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="container mx-auto px-6 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent mb-2">
+              🎵 Beat Battle
+            </h1>
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl px-4 py-2 inline-block">
+              <p className="text-slate-300">Group: <code className="text-green-400 font-mono font-bold text-lg">{group}</code></p>
+            </div>
+          </div>
+          {/* Sharing Section */}
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+              <span className="text-2xl mr-2">🔗</span>
+              Share Game
+            </h3>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Game Code</label>
+                  <div className="flex items-center gap-2">
+                    <code className="bg-slate-900/70 text-green-400 font-mono text-lg font-bold px-3 py-2 rounded-lg border border-slate-600">
+                      {group}
+                    </code>
+                    <button
+                      title="Copy group code"
+                      className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(group);
+                        setToast('Game code copied');
+                        setTimeout(() => setToast(null), 2000);
+                      }}
+                    >
+                      📋 Copy
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                  onClick={() => setQrVisible((v) => !v)}
+                >
+                  {qrVisible ? '🙈 Hide QR' : '📱 Show QR'}
+                </button>
+                <div className="flex-1 min-w-0 flex gap-2">
+                  <input
+                    readOnly
+                    value={shareLink}
+                    className="flex-1 bg-slate-900/70 border border-slate-600 text-slate-300 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    title="Copy join link"
+                    className="bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium whitespace-nowrap"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(shareLink);
+                      setToast('Join link copied');
+                      setTimeout(() => setToast(null), 2000);
+                    }}
+                  >
+                    🔗 Copy Link
+                  </button>
+                </div>
+              </div>
+            </div>
+            {qrVisible && (
+              <div className="mt-6 flex flex-col items-center">
+                <div className="bg-white p-4 rounded-xl shadow-lg">
+                  {qrDataUrl ? (
+                    <img src={qrDataUrl} alt="Join QR" width={200} height={200} className="rounded-lg" />
+                  ) : (
+                    <div className="w-50 h-50 bg-slate-200 rounded-lg flex items-center justify-center">
+                      <span className="text-slate-500">Generating QR…</span>
+                    </div>
+                  )}
+                </div>
+                {window.location.hostname === '127.0.0.1' && (
+                  <div className="mt-3 text-amber-400 text-sm text-center bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                    ⚠️ 127.0.0.1 works only on this device. For others on your network, set WEB_URL and open the app using your LAN IP.
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </section>
 
-      <section style={{ marginTop: 24 }}>
-        {!me ? (
-          <a href={loginUrl}>
-            <button>Connect with Spotify</button>
-          </a>
-        ) : (
-          <button onClick={async () => {
-            try {
-              // Logout from the app
-              await fetch('/api/logout', {
-                method: 'POST',
-                credentials: 'include'
-              });
+          {/* Authentication Section */}
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+              <span className="text-2xl mr-2">🎧</span>
+              Spotify Connection
+            </h3>
 
-              // Clear local state
-              setMe(null);
-              setMembers(null);
-              setGroup('');
-              setPlaylists(null);
-              setSongPreference({ includeLiked: true, includeRecent: false, includePlaylist: false });
-
-              // Go back to root page
-              window.history.pushState({}, '', '/');
-              setCurrentPath('/');
-
-            } catch (e) {
-              console.error('Logout failed:', e);
-              // Still clear local state and go to landing even if API call fails
-              setMe(null);
-              setMembers(null);
-              setGroup('');
-              window.history.pushState({}, '', '/');
-              setCurrentPath('/');
-            }
-          }}>Logout</button>
-        )}
-      </section>
-
-      <section style={{ marginTop: 12, color: me ? '#0a7d2b' : '#a00' }}>
-        {me ? (
-          <span>Connected as <strong>{me.name}</strong> ({me.id})</span>
-        ) : (
-          <span>Not connected to Spotify</span>
-        )}
-      </section>
-
-      {me && (
-        <section style={{ marginTop: 12, padding: 8, border: '1px solid #eee', borderRadius: 8 }}>
-          <strong>{me.name}</strong> — <span style={{ opacity: 0.8 }}>{me.role === 'host' ? 'Host' : 'Player'}</span>
-        </section>
-      )}
-
-      {me && !members?.some(m => m.id === me.id || m.id === `${me.id}#participant`) && (
-        <section style={{ marginTop: 24 }}>
-          <div style={{
-            padding: 16,
-            border: '1px solid #eee',
-            borderRadius: 8,
-            background: '#f9f9f9'
-          }}>
-            <h4 style={{ margin: '0 0 12px 0' }}>Choose your song sources for the game:</h4>
-            <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#666' }}>
-              You can select multiple sources. Your songs will be combined for the game.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={songPreference.includeLiked}
-                  onChange={(e) => setSongPreference({ ...songPreference, includeLiked: e.target.checked })}
-                />
-                <span>My liked songs</span>
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={songPreference.includeRecent}
-                  onChange={(e) => setSongPreference({ ...songPreference, includeRecent: e.target.checked })}
-                />
-                <span>My recently played tracks</span>
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={songPreference.includePlaylist}
-                  onChange={(e) => setSongPreference({
-                    ...songPreference,
-                    includePlaylist: e.target.checked,
-                    playlistId: e.target.checked ? (playlists?.[0]?.id || songPreference.playlistId) : undefined
-                  })}
-                />
-                <span>A specific playlist</span>
-              </label>
-
-              {songPreference.includePlaylist && playlists && (
-                <select
-                  value={songPreference.playlistId || ''}
-                  onChange={(e) => setSongPreference({ ...songPreference, playlistId: e.target.value })}
-                  style={{ marginLeft: 24, padding: 4, minWidth: 250 }}
-                >
-                  {playlists.map(playlist => (
-                    <option key={playlist.id} value={playlist.id}>
-                      {playlist.name} ({playlist.tracks.total} tracks)
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {!playlists && songPreference.includePlaylist && (
-                <div style={{ marginLeft: 24, fontSize: 14, color: '#666' }}>
-                  Loading playlists...
+            {!me ? (
+              <div className="text-center">
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
+                  <p className="text-red-400 flex items-center justify-center gap-2">
+                    <span>❌</span>
+                    Not connected to Spotify
+                  </p>
                 </div>
-              )}
-            </div>
+                <a href={loginUrl}>
+                  <button className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/25">
+                    🚀 Connect with Spotify
+                  </button>
+                </a>
+              </div>
+            ) : (
+              <div>
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-4">
+                  <p className="text-green-400 flex items-center gap-2">
+                    <span>✅</span>
+                    Connected as <strong className="text-white">{me.name}</strong>
+                    <span className="text-slate-400">({me.id})</span>
+                  </p>
+                </div>
+                <button
+                  className="bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                  onClick={async () => {
+                    try {
+                      await fetch('/api/logout', {
+                        method: 'POST',
+                        credentials: 'include'
+                      });
 
-            <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-              <button
-                onClick={async () => {
-                  try {
-                    const r = await fetch('/api/lobby/join', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ group, preference: songPreference }),
-                      credentials: 'include'
-                    });
-                    const data = await r.json();
-                    if (r.ok) {
-                      setMembers(data.members || null);
-                      setToast('Successfully joined the game!');
-                      setTimeout(() => setToast(null), 2000);
-                      try {
-                        const rm = await fetch('/api/me', { credentials: 'include' });
-                        if (rm.ok) setMe(await rm.json());
-                      } catch {}
-                    } else {
-                      alert(`Failed to join game: ${data.error || 'Unknown error'}`);
+                      setMe(null);
+                      setMembers(null);
+                      setGroup('');
+                      setPlaylists(null);
+                      setSongPreference({ includeLiked: true, includeRecent: false, includePlaylist: false });
+
+                      window.history.pushState({}, '', '/');
+                      setCurrentPath('/');
+
+                    } catch (e) {
+                      console.error('Logout failed:', e);
+                      setMe(null);
+                      setMembers(null);
+                      setGroup('');
+                      window.history.pushState({}, '', '/');
+                      setCurrentPath('/');
                     }
-                  } catch (e) {
-                    console.error('Failed to join lobby:', e);
-                    alert('Failed to join game. Please try again.');
-                  }
-                }}
-                disabled={
-                  (!songPreference.includeLiked && !songPreference.includeRecent && !songPreference.includePlaylist) ||
-                  (songPreference.includePlaylist && !songPreference.playlistId)
-                }
-              >
-                Join Game
-              </button>
-            </div>
+                  }}
+                >
+                  🚪 Logout
+                </button>
+              </div>
+            )}
           </div>
-        </section>
-      )}
 
+          {me && (
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
+                <span className="text-2xl mr-2">{me.role === 'host' ? '👑' : '🎮'}</span>
+                Your Role
+              </h3>
+              <div className={`rounded-xl p-4 ${me.role === 'host' ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-blue-500/10 border border-blue-500/30'}`}>
+                <div className="flex items-center gap-3">
+                  <strong className="text-white text-lg">{me.name}</strong>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${me.role === 'host' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
+                    {me.role === 'host' ? '👑 Host' : '🎮 Player'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
-      {members && (
-        <section style={{ marginTop: 12 }}>
-          <div style={{ marginBottom: 6 }}><strong>Members in {group}:</strong></div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {members.map((m) => (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', border: '1px solid #eee', borderRadius: 16 }}>
-                {m.avatar ? (
-                  <img src={m.avatar} alt={m.name} width={24} height={24} style={{ borderRadius: '50%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{
-                    width: 24, height: 24, borderRadius: '50%', background: '#ddd',
-                    color: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 12, fontWeight: 700
-                  }}>
-                    {m.name?.[0]?.toUpperCase() || '?'}
+          {me && !members?.some(m => m.id === me.id || m.id === `${me.id}#participant`) && (
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                <span className="text-2xl mr-2">🎵</span>
+                Choose Your Music Sources
+              </h3>
+              <p className="text-slate-300 text-sm mb-6">
+                Select your music sources for the game. Your songs will be combined with other players' choices.
+              </p>
+
+              <div className="space-y-4">
+                <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-green-500/50 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={songPreference.includeLiked}
+                    onChange={(e) => setSongPreference({ ...songPreference, includeLiked: e.target.checked })}
+                    className="w-4 h-4 text-green-500 bg-slate-700 border-slate-500 rounded focus:ring-green-500 focus:ring-2"
+                  />
+                  <span className="text-white flex items-center gap-2">
+                    <span className="text-lg">❤️</span>
+                    My liked songs
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-blue-500/50 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={songPreference.includeRecent}
+                    onChange={(e) => setSongPreference({ ...songPreference, includeRecent: e.target.checked })}
+                    className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-500 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <span className="text-white flex items-center gap-2">
+                    <span className="text-lg">🕒</span>
+                    My recently played tracks
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-purple-500/50 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={songPreference.includePlaylist}
+                    onChange={(e) => setSongPreference({
+                      ...songPreference,
+                      includePlaylist: e.target.checked,
+                      playlistId: e.target.checked ? (playlists?.[0]?.id || songPreference.playlistId) : undefined
+                    })}
+                    className="w-4 h-4 text-purple-500 bg-slate-700 border-slate-500 rounded focus:ring-purple-500 focus:ring-2"
+                  />
+                  <span className="text-white flex items-center gap-2">
+                    <span className="text-lg">📝</span>
+                    A specific playlist
+                  </span>
+                </label>
+
+                {songPreference.includePlaylist && playlists && (
+                  <div className="ml-8 mt-2">
+                    <select
+                      value={songPreference.playlistId || ''}
+                      onChange={(e) => setSongPreference({ ...songPreference, playlistId: e.target.value })}
+                      className="w-full bg-slate-900/70 border border-slate-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                    >
+                      {playlists.map(playlist => (
+                        <option key={playlist.id} value={playlist.id} className="bg-slate-800">
+                          {playlist.name} ({playlist.tracks.total} tracks)
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
-                <span>{m.name}</span>
-                <span style={{
-                  background: m.role === 'host' ? '#1db954' : '#666',
-                  color: m.role === 'host' ? '#000' : '#fff',
-                  borderRadius: 10,
-                  padding: '2px 6px',
-                  fontSize: 12
-                }}>
-                  {m.role === 'host' ? 'Host' : 'Player'}
-                </span>
-                {state?.contrib && (
-                  <span title="Songs from this player" style={{ marginLeft: 4, fontSize: 12, opacity: 0.8 }}>
-                    {state.contrib[m.id.split('#')[0]] ?? 0}
-                  </span>
+
+                {!playlists && songPreference.includePlaylist && (
+                  <div className="ml-8 mt-2 text-slate-400 text-sm flex items-center gap-2">
+                    <div className="animate-spin w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full"></div>
+                    Loading playlists...
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+
+              <div className="mt-6 text-center">
+                <button
+                  onClick={async () => {
+                    try {
+                      const r = await fetch('/api/lobby/join', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ group, preference: songPreference }),
+                        credentials: 'include'
+                      });
+                      const data = await r.json();
+                      if (r.ok) {
+                        setMembers(data.members || null);
+                        setToast('Successfully joined the game!');
+                        setTimeout(() => setToast(null), 2000);
+                        try {
+                          const rm = await fetch('/api/me', { credentials: 'include' });
+                          if (rm.ok) setMe(await rm.json());
+                        } catch {}
+                      } else {
+                        alert(`Failed to join game: ${data.error || 'Unknown error'}`);
+                      }
+                    } catch (e) {
+                      console.error('Failed to join lobby:', e);
+                      alert('Failed to join game. Please try again.');
+                    }
+                  }}
+                  disabled={
+                    (!songPreference.includeLiked && !songPreference.includeRecent && !songPreference.includePlaylist) ||
+                    (songPreference.includePlaylist && !songPreference.playlistId)
+                  }
+                  className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-green-500/25"
+                >
+                  🎮 Join Game
+                </button>
+              </div>
+            </div>
+          )}
+
+          {members && (
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                <span className="text-2xl mr-2">👥</span>
+                Game Members ({members.length})
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {members.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600">
+                    {m.avatar ? (
+                      <img src={m.avatar} alt={m.name} width={40} height={40} className="rounded-full object-cover border-2 border-slate-500" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 text-white flex items-center justify-center text-sm font-bold">
+                        {m.name?.[0]?.toUpperCase() || '?'}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-white font-medium truncate">{m.name}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${m.role === 'host' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
+                          {m.role === 'host' ? '👑' : '🎮'}
+                        </span>
+                      </div>
+                      {state?.contrib && (
+                        <div className="text-xs text-slate-400">
+                          {state.contrib[m.id.split('#')[0]] ?? 0} songs contributed
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
       {state?.track?.id && (
-        <section style={{ marginTop: 12 }}>
+        <section className="mt-3">
           <button disabled={likeBusy} onClick={async () => {
             try {
               setLikeBusy(true);
@@ -532,19 +625,18 @@ export function App() {
         </section>
       )}
 
-      {/* Toast */}
-      {toast && (
-        <div style={{
-          position: 'fixed', right: 16, bottom: 72,
-          background: '#333', color: '#fff', padding: '8px 12px',
-          borderRadius: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-        }}>
-          {toast}
-        </div>
-      )}
+          {/* Toast */}
+          {toast && (
+            <div className="fixed top-4 right-4 z-50 bg-slate-800 border border-slate-600 text-white px-4 py-3 rounded-xl shadow-2xl animate-pulse">
+              <div className="flex items-center gap-2">
+                <span className="text-green-400">✅</span>
+                {toast}
+              </div>
+            </div>
+          )}
 
       {isHost && (
-        <section style={{ marginTop: 24 }}>
+        <section className="mt-6">
           <button disabled={!me || !group.trim()} onClick={async () => {
             try { await transferPlaybackToPlayer(); } catch {}
             setAnswer(null);
@@ -557,7 +649,7 @@ export function App() {
               if (rm.ok) setMe(await rm.json());
             } catch {}
           }}>Start game</button>
-          <button style={{ marginLeft: 12 }} disabled={!me || !group.trim()} onClick={async () => {
+          <button className="ml-3" disabled={!me || !group.trim()} onClick={async () => {
             try { await transferPlaybackToPlayer(); } catch {}
             setAnswer(null);
             setJudgement({ titleOk: false, artistOk: false, yearOk: false });
@@ -569,43 +661,39 @@ export function App() {
       )}
 
       {isHost && (
-      <section style={{ marginTop: 12 }}>
-        <audio ref={audioRef} controls style={{ display: 'none' }} />
-        <div style={{ marginTop: 8, fontSize: 12, color: '#555' }}>
+      <section className="mt-3">
+        <audio ref={audioRef} controls className="hidden" />
+        <div className="mt-2 text-xs text-gray-600">
           Playing via Spotify Web Playback SDK (requires Premium)
         </div>
-        <div style={{ marginTop: 4, fontSize: 12, color: deviceInfo?.is_active ? '#1db954' : '#a00' }}>
+        <div className={`mt-1 text-xs ${deviceInfo?.is_active ? 'text-green-500' : 'text-red-600'}`}>
           Device: {deviceInfo?.name || 'Web Player'} — {deviceInfo?.is_active ? 'active' : 'inactive'}
         </div>
         {state?.index !== undefined && state?.total !== undefined && (
-          <div style={{ marginTop: 4, fontSize: 12, color: '#555' }}>
+          <div className="mt-1 text-xs text-gray-600">
             Track {state.index + 1} of {state.total}
           </div>
         )}
         {navError && (
-          <div style={{ marginTop: 8, color: '#a00' }}>{navError}</div>
+          <div className="mt-2 text-red-600">{navError}</div>
         )}
       </section>
       )}
 
       {/* Mini player bar */}
       {isHost && (
-      <div style={{
-        position: 'fixed', left: 0, right: 0, bottom: 0,
-        background: '#111', color: '#fff',
-        padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 12
-      }}>
-        <button onClick={() => fetchPlayablePrev().then(() => transferPlaybackToPlayer()).catch(() => {})} style={{ background: '#222', color: '#fff', border: 0, padding: '6px 10px', borderRadius: 4 }}>
+      <div className="fixed left-0 right-0 bottom-0 bg-gray-900 text-white px-3 py-2 flex items-center gap-3">
+        <button onClick={() => fetchPlayablePrev().then(() => transferPlaybackToPlayer()).catch(() => {})} className="bg-gray-800 text-white border-0 px-2.5 py-1.5 rounded">
           ⏮
         </button>
-        <button onClick={() => togglePlay()} style={{ background: '#1db954', color: '#000', border: 0, padding: '6px 10px', borderRadius: 4 }}>
+        <button onClick={() => togglePlay()} className="bg-green-500 text-black border-0 px-2.5 py-1.5 rounded">
           {sdkState?.paused ? 'Play' : 'Pause'}
         </button>
-        <button onClick={() => fetchPlayableNext().then(() => transferPlaybackToPlayer()).catch(() => {})} style={{ background: '#222', color: '#fff', border: 0, padding: '6px 10px', borderRadius: 4 }}>
+        <button onClick={() => fetchPlayableNext().then(() => transferPlaybackToPlayer()).catch(() => {})} className="bg-gray-800 text-white border-0 px-2.5 py-1.5 rounded">
           ⏭
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 12, opacity: 0.8 }}>Vol</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs opacity-80">Vol</span>
           <input
             type="range"
             min={0}
@@ -618,19 +706,19 @@ export function App() {
             }}
           />
         </div>
-        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+        <div className="overflow-hidden text-ellipsis whitespace-nowrap flex-1">
           <span>{sdkState ? 'Now Playing' : 'Ready'}</span>
         </div>
-        <div style={{ fontVariantNumeric: 'tabular-nums' }}>
+        <div className="tabular-nums">
           {formatDuration(sdkState?.position || 0)} / {formatDuration(sdkState?.duration || state?.track?.duration_ms)}
         </div>
       </div>
       )}
 
       {isHost && (
-      <section style={{ marginTop: 24 }}>
+      <section className="mt-6">
         <h3>Reveal & judge</h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-3 flex-wrap">
           <button disabled={!me || !group.trim() || !state?.track?.id} onClick={async () => {
             setRevealError(null);
             try {
@@ -653,33 +741,23 @@ export function App() {
 
         </div>
         {answer && (
-          <div style={{
-            marginTop: 12,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            padding: 12,
-            border: '1px solid #e5e5e5',
-            borderRadius: 8,
-            background: '#0a0a0a',
-            color: '#fff'
-          }}>
+          <div className="mt-3 flex items-center gap-4 p-3 border border-gray-300 rounded-lg bg-black text-white">
             <img
               src={state?.track?.album?.images?.[0]?.url || state?.track?.album?.images?.[1]?.url}
               alt={answer.title}
-              style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 4 }}
+              className="w-24 h-24 object-cover rounded"
             />
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{answer.title}</div>
-              <div style={{ opacity: 0.85, marginTop: 2 }}>{answer.artist}</div>
-              <div style={{ opacity: 0.7, marginTop: 2 }}>Album: {state?.track?.album?.name || '—'}</div>
-              <div style={{ opacity: 0.7, marginTop: 2 }}>Year: {answer.year} · Duration: {formatDuration(state?.track?.duration_ms)}</div>
+            <div className="flex flex-col">
+              <div className="font-bold text-base">{answer.title}</div>
+              <div className="opacity-85 mt-0.5">{answer.artist}</div>
+              <div className="opacity-70 mt-0.5">Album: {state?.track?.album?.name || '—'}</div>
+              <div className="opacity-70 mt-0.5">Year: {answer.year} · Duration: {formatDuration(state?.track?.duration_ms)}</div>
 
               {answer.attribution && (
-                <div style={{ marginTop: 8, padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: '#1db954' }}>Song Sources:</div>
+                <div className="mt-2 p-2 bg-white/10 rounded">
+                  <div className="text-xs font-semibold mb-1 text-green-500">Song Sources:</div>
                   {answer.attribution.sources.map((source, idx) => (
-                    <div key={idx} style={{ fontSize: 11, opacity: 0.9, marginBottom: 2 }}>
+                    <div key={idx} className="text-xs opacity-90 mb-0.5">
                       <strong>{source.userName}</strong> - {
                         source.sourceType === 'liked' ? 'Liked Songs' :
                         source.sourceType === 'recent' ? 'Recently Played' :
@@ -696,7 +774,7 @@ export function App() {
                   href={`https://open.spotify.com/track/${state.track.id}`}
                   target="_blank"
                   rel="noreferrer noopener"
-                  style={{ marginTop: 8, color: '#1db954', textDecoration: 'none', fontWeight: 600 }}
+                  className="mt-2 text-green-500 no-underline font-semibold"
                 >
                   Open in Spotify
                 </a>
@@ -705,12 +783,12 @@ export function App() {
           </div>
         )}
         {revealError && (
-          <div style={{ marginTop: 8, color: '#a00' }}>
+          <div className="mt-2 text-red-600">
             {revealError}
           </div>
         )}
         {lastPoints !== null && (
-          <div style={{ marginTop: 8 }}>
+          <div className="mt-2">
             Awarded: <strong>{lastPoints}</strong> point{lastPoints === 1 ? '' : 's'}
           </div>
         )}
@@ -718,26 +796,23 @@ export function App() {
       )}
 
       {!isHost && answer && (
-        <section style={{ marginTop: 24 }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 16, padding: 12,
-            border: '1px solid #e5e5e5', borderRadius: 8, background: '#0a0a0a', color: '#fff'
-          }}>
+        <section className="mt-6">
+          <div className="flex items-center gap-4 p-3 border border-gray-300 rounded-lg bg-black text-white">
             <img
               src={state?.track?.album?.images?.[0]?.url || state?.track?.album?.images?.[1]?.url}
               alt={answer.title}
-              style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 4 }}
+              className="w-24 h-24 object-cover rounded"
             />
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{answer.title}</div>
-              <div style={{ opacity: 0.85, marginTop: 2 }}>{answer.artist}</div>
-              <div style={{ opacity: 0.7, marginTop: 2 }}>Album: {state?.track?.album?.name || '—'}</div>
-              <div style={{ opacity: 0.7, marginTop: 2 }}>Year: {answer.year} · Duration: {formatDuration(state?.track?.duration_ms)}</div>
+            <div className="flex flex-col">
+              <div className="font-bold text-base">{answer.title}</div>
+              <div className="opacity-85 mt-0.5">{answer.artist}</div>
+              <div className="opacity-70 mt-0.5">Album: {state?.track?.album?.name || '—'}</div>
+              <div className="opacity-70 mt-0.5">Year: {answer.year} · Duration: {formatDuration(state?.track?.duration_ms)}</div>
               {answer.attribution && (
-                <div style={{ marginTop: 8, padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: '#1db954' }}>Song Sources:</div>
+                <div className="mt-2 p-2 bg-white/10 rounded">
+                  <div className="text-xs font-semibold mb-1 text-green-500">Song Sources:</div>
                   {answer.attribution.sources.map((source, idx) => (
-                    <div key={idx} style={{ fontSize: 11, opacity: 0.9, marginBottom: 2 }}>
+                    <div key={idx} className="text-xs opacity-90 mb-0.5">
                       <strong>{source.userName}</strong> - {
                         source.sourceType === 'liked' ? 'Liked Songs' :
                         source.sourceType === 'recent' ? 'Recently Played' :
@@ -753,7 +828,7 @@ export function App() {
                   href={`https://open.spotify.com/track/${state.track.id}`}
                   target="_blank"
                   rel="noreferrer noopener"
-                  style={{ marginTop: 8, color: '#1db954', textDecoration: 'none', fontWeight: 600 }}
+                  className="mt-2 text-green-500 no-underline font-semibold"
                 >
                   Open in Spotify
                 </a>
@@ -763,16 +838,25 @@ export function App() {
         </section>
       )}
 
+        </div>
+      </div>
     </div>
     );
   }
 
   // 404 fallback
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24, maxWidth: 720 }}>
-      <h1>Page Not Found</h1>
-      <p>The page you're looking for doesn't exist.</p>
-      <a href="/" style={{ color: '#1db954' }}>Go back to home</a>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="container mx-auto px-6 py-12">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="text-8xl mb-6">🎵</div>
+          <h1 className="text-4xl font-bold text-white mb-4">Page Not Found</h1>
+          <p className="text-slate-300 mb-8">The page you're looking for doesn't exist.</p>
+          <a href="/" className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/25">
+            🏠 Go back to home
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
