@@ -2,11 +2,16 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { playTrackId, transferPlaybackToPlayer } from '../spotify/player';
 import QRCode from 'qrcode';
 import { Landing } from './Landing';
-import { Card } from './components/Card';
-import { GradientButton } from './components/GradientButton';
 import { SongCard } from './components/SongCard';
-import { UserSection } from './components/UserSection';
 import { MusicPreferencesForm } from './components/MusicPreferencesForm';
+import { GameHeader } from './components/GameHeader';
+import { ShareGameCard } from './components/ShareGameCard';
+import { LoginPrompt } from './components/LoginPrompt';
+import { GameMembersList } from './components/GameMembersList';
+import { HostControls } from './components/HostControls';
+import { PlaybackStatus } from './components/PlaybackStatus';
+import { RevealJudge } from './components/RevealJudge';
+import { MiniPlayer } from './components/MiniPlayer';
 import { useAuth } from '../hooks/useAuth';
 import { useGameState } from '../hooks/useGameState';
 import { useSpotifyPlayer } from '../hooks/useSpotifyPlayer';
@@ -277,113 +282,34 @@ export function App() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="container mx-auto px-6 py-8">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start mb-8 gap-4">
-            <div className="text-center lg:flex-1 order-1 lg:order-1">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-                🎵 Beat Battle
-              </h1>
-            </div>
+          <GameHeader
+            user={me}
+            onLogout={async () => {
+              await logout();
+              setGroup('');
+              setPlaylists(null);
+              setSongPreference({ includeLiked: true, includeRecent: false, includePlaylist: false });
+              window.history.pushState({}, '', '/');
+              setCurrentPath('/');
+            }}
+          />
+          <ShareGameCard
+            group={group}
+            qrVisible={qrVisible}
+            qrDataUrl={qrDataUrl}
+            shareLink={shareLink}
+            onToggleQR={() => setQrVisible((v) => !v)}
+            onCopyGameCode={async () => {
+              await navigator.clipboard.writeText(group);
+              showToast('Game code copied');
+            }}
+            onCopyShareLink={async () => {
+              await navigator.clipboard.writeText(shareLink);
+              showToast('Invitation link copied');
+            }}
+          />
 
-            {/* User Info */}
-            {me && (
-              <div className="order-2 lg:order-2">
-                <UserSection
-                  user={me}
-                  onLogout={async () => {
-                    await logout();
-                    setGroup('');
-                    setPlaylists(null);
-                    setSongPreference({ includeLiked: true, includeRecent: false, includePlaylist: false });
-                    window.history.pushState({}, '', '/');
-                    setCurrentPath('/');
-                  }}
-                />
-              </div>
-            )}
-          </div>
-          {/* Sharing Section */}
-          <Card title="Share Game" icon="🔗" className="mb-6">
-            <div className="flex items-end gap-3 flex-wrap">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Game Code</label>
-                <code className="bg-slate-900/70 text-green-400 font-mono text-lg font-bold px-3 py-2 rounded-lg border border-slate-600 block">
-                  {group}
-                </code>
-              </div>
-              <GradientButton
-                variant="blue"
-                size="sm"
-                icon="📋"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(group);
-                  showToast('Game code copied');
-                }}
-              >
-                Copy
-              </GradientButton>
-              <GradientButton
-                variant="purple"
-                size="sm"
-                icon={qrVisible ? '🙈' : '📱'}
-                onClick={() => setQrVisible((v) => !v)}
-              >
-                {qrVisible ? 'Hide QR' : 'Show QR'}
-              </GradientButton>
-              <GradientButton
-                variant="green"
-                size="sm"
-                icon="🔗"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(shareLink);
-                  showToast('Invitation link copied');
-                }}
-              >
-                Copy Invitation Link
-              </GradientButton>
-            </div>
-            {qrVisible && (
-              <div className="mt-6 flex flex-col items-center">
-                <div className="bg-white p-4 rounded-xl shadow-lg">
-                  {qrDataUrl ? (
-                    <img src={qrDataUrl} alt="Join QR" width={200} height={200} className="rounded-lg" />
-                  ) : (
-                    <div className="w-50 h-50 bg-slate-200 rounded-lg flex items-center justify-center">
-                      <span className="text-slate-500">Generating QR…</span>
-                    </div>
-                  )}
-                </div>
-                {window.location.hostname === '127.0.0.1' && (
-                  <div className="mt-3 text-amber-400 text-sm text-center bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
-                    ⚠️ 127.0.0.1 works only on this device. For others on your network, set WEB_URL and open the app using your LAN IP.
-                  </div>
-                )}
-              </div>
-            )}
-          </Card>
-
-          {/* Login Section - Only show if not authenticated */}
-          {!me && (
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                <span className="text-2xl mr-2">🎧</span>
-                Spotify Connection Required
-              </h3>
-              <div className="text-center">
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
-                  <p className="text-red-400 flex items-center justify-center gap-2">
-                    <span>❌</span>
-                    Not connected to Spotify
-                  </p>
-                </div>
-                <a href={loginUrl}>
-                  <button className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/25">
-                    🚀 Connect with Spotify
-                  </button>
-                </a>
-              </div>
-            </div>
-          )}
+          {!me && <LoginPrompt loginUrl={loginUrl} />}
 
 
           {me && !members?.some(m => m.id === me.id || m.id === `${me.id}#participant`) && (
@@ -415,40 +341,7 @@ export function App() {
             />
           )}
 
-          {members && (
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                <span className="text-2xl mr-2">👥</span>
-                Game Members ({members.length})
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {members.map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600">
-                    {m.avatar ? (
-                      <img src={m.avatar} alt={m.name} width={40} height={40} className="rounded-full object-cover border-2 border-slate-500" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 text-white flex items-center justify-center text-sm font-bold">
-                        {m.name?.[0]?.toUpperCase() || '?'}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-white font-medium truncate">{m.name}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${m.role === 'host' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
-                          {m.role === 'host' ? '👑' : '🎮'}
-                        </span>
-                      </div>
-                      {state?.contrib && (
-                        <div className="text-xs text-slate-400">
-                          {state.contrib[m.id.split('#')[0]] ?? 0} songs contributed
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {members && <GameMembersList members={members} state={state} />}
 
 
           {/* Toast */}
@@ -462,152 +355,36 @@ export function App() {
           )}
 
           {isHost && (
-            <Card title="Host Controls" icon="🎮" className="mb-6">
-              <div className="flex gap-3 flex-wrap">
-                <GradientButton
-                  icon="🚀"
-                  disabled={!me || !group.trim()}
-                  onClick={handleStartGame}
-                >
-                  Start Game
-                </GradientButton>
-                <GradientButton
-                  variant="blue"
-                  icon="⏭️"
-                  disabled={!me || !group.trim()}
-                  onClick={handleNextTrack}
-                >
-                  Next Track
-                </GradientButton>
-              </div>
-            </Card>
+            <HostControls
+              user={me}
+              group={group}
+              onStartGame={handleStartGame}
+              onNextTrack={handleNextTrack}
+            />
           )}
 
           {isHost && (
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                <span className="text-2xl mr-2">🎵</span>
-                Playback Status
-              </h3>
-              <audio ref={audioRef} controls className="hidden" />
-              <div className="space-y-2">
-                <div className="text-sm text-slate-300 flex items-center gap-2">
-                  <span className="text-lg">🎧</span>
-                  Playing via Spotify Web Playback SDK (requires Premium)
-                </div>
-                <div className={`text-sm flex items-center gap-2 ${deviceInfo?.is_active ? 'text-green-400' : 'text-red-400'}`}>
-                  <span>{deviceInfo?.is_active ? '✅' : '❌'}</span>
-                  Device: <strong>{deviceInfo?.name || 'Web Player'}</strong> — {deviceInfo?.is_active ? 'active' : 'inactive'}
-                </div>
-                {state?.index !== undefined && state?.total !== undefined && (
-                  <div className="text-sm text-slate-300 flex items-center gap-2">
-                    <span className="text-lg">📊</span>
-                    Track <strong>{state.index + 1}</strong> of <strong>{state.total}</strong>
-                  </div>
-                )}
-                {navError && (
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
-                    <span className="text-lg mr-2">⚠️</span>
-                    {navError}
-                  </div>
-                )}
-              </div>
-            </div>
+            <PlaybackStatus
+              deviceInfo={deviceInfo}
+              state={state}
+              navError={navError}
+              audioRef={audioRef}
+            />
           )}
 
 
           {isHost && (
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                <span className="text-2xl mr-2">📋</span>
-                Reveal & Judge
-              </h3>
-
-              <div className="space-y-4">
-                <div className="flex justify-center">
-                  <GradientButton
-                    variant="purple"
-                    size="lg"
-                    icon="🔍"
-                    disabled={!me || !group.trim() || !state?.track?.id}
-                    onClick={handleReveal}
-                  >
-                    Reveal Answer
-                  </GradientButton>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-green-500/50 cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={judgement.titleOk}
-                      onChange={(e) => setJudgement({ ...judgement, titleOk: e.target.checked })}
-                      className="w-4 h-4 text-green-500 bg-slate-700 border-slate-500 rounded focus:ring-green-500 focus:ring-2"
-                    />
-                    <span className="text-white flex items-center gap-2">
-                      <span className="text-lg">🎵</span>
-                      <div>
-                        <div className="font-medium">Title correct</div>
-                        <div className="text-xs text-slate-400">+1 point</div>
-                      </div>
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-blue-500/50 cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={judgement.artistOk}
-                      onChange={(e) => setJudgement({ ...judgement, artistOk: e.target.checked })}
-                      className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-500 rounded focus:ring-blue-500 focus:ring-2"
-                    />
-                    <span className="text-white flex items-center gap-2">
-                      <span className="text-lg">🎤</span>
-                      <div>
-                        <div className="font-medium">Artist correct</div>
-                        <div className="text-xs text-slate-400">+1 point</div>
-                      </div>
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-purple-500/50 cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={judgement.yearOk}
-                      onChange={(e) => setJudgement({ ...judgement, yearOk: e.target.checked })}
-                      className="w-4 h-4 text-purple-500 bg-slate-700 border-slate-500 rounded focus:ring-purple-500 focus:ring-2"
-                    />
-                    <span className="text-white flex items-center gap-2">
-                      <span className="text-lg">📅</span>
-                      <div>
-                        <div className="font-medium">Year correct</div>
-                        <div className="text-xs text-slate-400">+5 points</div>
-                      </div>
-                    </span>
-                  </label>
-                </div>
-              </div>
-              {answer && state?.track && (
-                <div className="mt-6">
-                  <SongCard track={state.track} answer={answer} />
-                </div>
-              )}
-              {revealError && (
-                <div className="mt-4 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">⚠️</span>
-                    {revealError}
-                  </div>
-                </div>
-              )}
-              {lastPoints !== null && (
-                <div className="mt-4 bg-green-500/10 border border-green-500/30 rounded-lg p-3 text-center">
-                  <div className="text-green-400 font-semibold flex items-center justify-center gap-2">
-                    <span className="text-lg">🎆</span>
-                    Awarded: <strong className="text-white text-lg">{lastPoints}</strong> point{lastPoints === 1 ? '' : 's'}
-                  </div>
-                </div>
-              )}
-            </div>
+            <RevealJudge
+              user={me}
+              group={group}
+              state={state}
+              answer={answer}
+              judgement={judgement}
+              lastPoints={lastPoints}
+              revealError={revealError}
+              onReveal={handleReveal}
+              onJudgementChange={setJudgement}
+            />
           )}
 
           {!isHost && answer && state?.track && (
@@ -616,58 +393,22 @@ export function App() {
             </div>
           )}
 
-          {/* Mini player bar */}
           {isHost && (
-            <div className="fixed left-0 right-0 bottom-0 bg-slate-900 text-white px-3 py-2 flex items-center gap-3 border-t border-slate-700 shadow-2xl">
-              <button
-                onClick={async () => {
-                  try { await activatePlayer(); } catch {}
-                  fetchPlayablePrev().then(() => transferPlaybackToPlayer()).catch(() => {});
-                }}
-                className="bg-slate-800 hover:bg-slate-700 text-white border-0 px-2.5 py-1.5 rounded transition-colors"
-              >
-                ⏮
-              </button>
-              <button
-                onClick={async () => {
-                  try { await activatePlayer(); } catch {}
-                  togglePlay();
-                }}
-                className="bg-green-500 hover:bg-green-400 text-black border-0 px-2.5 py-1.5 rounded transition-colors font-medium"
-              >
-                {sdkState?.paused ? 'Play' : 'Pause'}
-              </button>
-              <button
-                onClick={async () => {
-                  try { await activatePlayer(); } catch {}
-                  fetchPlayableNext().then(() => transferPlaybackToPlayer()).catch(() => {});
-                }}
-                className="bg-slate-800 hover:bg-slate-700 text-white border-0 px-2.5 py-1.5 rounded transition-colors"
-              >
-                ⏭
-              </button>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs opacity-80">Vol</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={volume}
-                  onChange={async (e) => {
-                    const v = Number(e.target.value);
-                    setVol(v);
-                    await setVolume(v / 100);
-                  }}
-                  className="w-20"
-                />
-              </div>
-              <div className="overflow-hidden text-ellipsis whitespace-nowrap flex-1">
-                <span className="text-sm">{sdkState ? 'Now Playing' : 'Ready'}</span>
-              </div>
-              <div className="tabular-nums text-sm">
-                {formatDuration(sdkState?.position || 0)} / {formatDuration(sdkState?.duration || state?.track?.duration_ms)}
-              </div>
-            </div>
+            <MiniPlayer
+              sdkState={sdkState}
+              state={state}
+              volume={volume}
+              onPrevTrack={handlePrevTrack}
+              onTogglePlay={togglePlayback}
+              onNextTrack={async () => {
+                try { await activate(); } catch {}
+                // fetchPlayableNext().then(() => transferPlaybackToPlayer()).catch(() => {});
+              }}
+              onVolumeChange={async (v) => {
+                await updateVolume(v / 100);
+              }}
+              formatDuration={formatDuration}
+            />
           )}
 
         </div>
