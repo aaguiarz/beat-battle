@@ -1,5 +1,5 @@
-import { aggregateGroup, type TrackAttribution } from './aggregate.js';
-import { getTracksByIds, type SimpleTrack } from './spotify.js';
+import { aggregateGroup, type TrackAttribution } from './aggregate';
+import { getTracksByIds, type SimpleTrack } from './spotify';
 
 type Game = {
   group: string;
@@ -40,7 +40,7 @@ export async function startGame(opts: { group: string; accessToken: string; seed
     games.set(group, game);
   }
   if (!game.trackIds.length) {
-    console.log(`[Game Debug] No tracks found for group ${group}. Game state:`, { trackIds: game.trackIds, members: require('./lobby.js').lobby.members(group) });
+    console.log(`[Game Debug] No tracks found for group ${group}. Game state:`, { trackIds: game.trackIds, members: require('./lobby').lobby.members(group) });
     throw new Error('No tracks available for this game - check that users have authenticated and have music preferences set');
   }
   const got = await getIndexAndTrack(accessToken, game.trackIds, game.current);
@@ -57,7 +57,11 @@ export async function getState(opts: { group: string; accessToken: string }) {
   if (!game.trackIds.length) return { group, index: 0, total: 0 };
   const got = await getIndexAndTrack(accessToken, game.trackIds, game.current);
   game.current = got.idx;
-  const t = got.track!;
+  const t = got.track;
+  if (!t) {
+    console.log(`[Game State] No track available for group ${group}, index ${got.idx}`);
+    return { group, index: game.current, total: game.trackIds.length };
+  }
   const contrib = computeContrib(game);
   return { group, index: game.current, total: game.trackIds.length, track: { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms }, contrib, answer: game.lastAnswer } as any;
 }
@@ -70,7 +74,7 @@ export async function submitGuess(opts: { group: string; accessToken: string; us
   const title = t.name;
   const artist = t.artists[0]?.name || '';
   const year = yearFromRelease(t.album.release_date) || 0;
-  const { scoreGuess } = await import('./modules/scoring.js');
+  const { scoreGuess } = await import('./modules/scoring');
   const points = scoreGuess(guess, { title, artist, year });
   game.scores.set(userId, (game.scores.get(userId) || 0) + points);
   return { points, correct: { titleArtist: points >= 1, year: guess.year === year }, answer: { title, artist, year }, trackId: t.id };
