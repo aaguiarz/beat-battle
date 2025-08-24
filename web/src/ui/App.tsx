@@ -167,21 +167,22 @@ export function App() {
       } catch {}
     }
 
-    async function maybeAutoJoin() {
-      try {
-        if (autojoin && (groupParam || group)) {
-          const grp = groupParam || group;
-          const rj = await fetch('/api/lobby/join', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ group: grp }), credentials: 'include'
-          });
-          await rj.json();
-        }
-      } catch {}
-    }
+    // Remove auto-join functionality - let users manually join after selecting music preferences
+    // async function maybeAutoJoin() {
+    //   try {
+    //     if (autojoin && (groupParam || group)) {
+    //       const grp = groupParam || group;
+    //       const rj = await fetch('/api/lobby/join', {
+    //         method: 'POST', headers: { 'Content-Type': 'application/json' },
+    //         body: JSON.stringify({ group: grp }), credentials: 'include'
+    //       });
+    //       await rj.json();
+    //     }
+    //   } catch {}
+    // }
 
     if (authed === '1') {
-      checkMe().then(maybeAutoJoin).then(checkMe);
+      checkMe();
       // Clean URL params after handling
       url.searchParams.delete('authed');
       url.searchParams.delete('group');
