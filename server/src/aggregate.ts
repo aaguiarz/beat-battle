@@ -1,7 +1,7 @@
-import { lobby } from './lobby.js';
-import { store } from './store.js';
-import { getTopTracks, getRecentlyPlayed, getSavedTracks, getPlaylistTracks, getPlaylist, type SimpleTrack } from './spotify.js';
-import { weightedSample } from './utils/random.js';
+import { lobby } from './lobby';
+import { store } from './store';
+import { getTopTracks, getRecentlyPlayed, getSavedTracks, getPlaylistTracks, getPlaylist, type SimpleTrack } from './spotify';
+import { weightedSample } from './utils/random';
 
 export type TrackAttribution = {
   trackId: string;

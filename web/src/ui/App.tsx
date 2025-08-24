@@ -22,7 +22,6 @@ import { useToast } from '../hooks/useToast';
 export function App() {
   const [group, setGroup] = useState('');
   const [playbackMode, setPlaybackMode] = useState<'connect' | 'websdk'>('connect');
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [qrVisible, setQrVisible] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -33,6 +32,7 @@ export function App() {
   const [navError, setNavError] = useState<string | null>(null);
   const [positionMs, setPositionMs] = useState<number>(0);
   const [durationMs, setDurationMs] = useState<number>(0);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(localStorage.getItem('mm_device_id'));
   const [songPreference, setSongPreference] = useState<{ includeLiked: boolean; includeRecent: boolean; includePlaylist: boolean; playlistId?: string }>({ includeLiked: true, includeRecent: false, includePlaylist: false });
   const [playlists, setPlaylists] = useState<Array<{ id: string; name: string; tracks: { total: number } }> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -55,6 +55,19 @@ export function App() {
   }
 
   const isHost = useMemo(() => me?.role === 'host', [me]);
+  const hostHasJoined = useMemo(() => 
+    me && members?.some(m => m.id === me.id || m.id === `${me.id}#participant`), 
+    [me, members]
+  );
+  
+  const handleDeviceSelect = (deviceId: string | null) => {
+    setSelectedDeviceId(deviceId);
+    if (deviceId) {
+      localStorage.setItem('mm_device_id', deviceId);
+    } else {
+      localStorage.removeItem('mm_device_id');
+    }
+  };
   function formatDuration(ms?: number) {
     if (!ms && ms !== 0) return '—';
     const totalSec = Math.round(ms / 1000);
@@ -66,8 +79,9 @@ export function App() {
   const handleStartGame = async () => {
     try {
       // If host selected a Connect device, use it; otherwise use Web SDK
-      if (playbackMode === 'connect' && selectedDeviceId) {
-        try { await transferConnect(selectedDeviceId, true); } catch {}
+      const chosen = localStorage.getItem('mm_device_id');
+      if (playbackMode === 'connect' && chosen) {
+        try { await transferConnect(chosen, true); } catch {}
       } else if (playbackMode === 'websdk') {
         await activate();
         await transferPlaybackToPlayer();
@@ -89,8 +103,9 @@ export function App() {
 
   const handleNextTrack = async () => {
     try {
-      if (playbackMode === 'connect' && selectedDeviceId) {
-        try { await transferConnect(selectedDeviceId, true); } catch {}
+      const chosen = localStorage.getItem('mm_device_id');
+      if (playbackMode === 'connect' && chosen) {
+        try { await transferConnect(chosen, true); } catch {}
       } else if (playbackMode === 'websdk') {
         await activate();
         await transferPlaybackToPlayer();
@@ -111,8 +126,9 @@ export function App() {
 
   const handlePause = async () => {
     try {
-      if (playbackMode === 'connect' && selectedDeviceId) {
-        await pauseConnect(selectedDeviceId);
+      const chosen = localStorage.getItem('mm_device_id');
+      if (playbackMode === 'connect' && chosen) {
+        await pauseConnect(chosen);
       } else {
         await pausePlayback();
       }
@@ -128,8 +144,9 @@ export function App() {
       }
       setNavError(null);
       await gamePrevTrack();
-      if (playbackMode === 'connect' && selectedDeviceId) {
-        try { await transferConnect(selectedDeviceId, true); } catch {}
+      const chosen = localStorage.getItem('mm_device_id');
+      if (playbackMode === 'connect' && chosen) {
+        try { await transferConnect(chosen, true); } catch {}
       } else if (playbackMode === 'websdk') {
         await transferPlaybackToPlayer();
       }
@@ -151,12 +168,13 @@ export function App() {
   useEffect(() => {
     const id = state?.track?.id as string | undefined;
     if (!id) return;
+    const chosen = localStorage.getItem('mm_device_id');
     (async () => {
       const startMs = 0;
-      if (playbackMode === 'connect' && selectedDeviceId) {
+      if (playbackMode === 'connect' && chosen) {
         try {
-          await transferConnect(selectedDeviceId, true);
-          await playOnConnect({ deviceId: selectedDeviceId, trackId: id, positionMs: startMs });
+          await transferConnect(chosen, true);
+          await playOnConnect({ deviceId: chosen, trackId: id, positionMs: startMs });
           scheduleAutoStop();
         } catch (e) {
           console.warn('Connect playback failed', e);
@@ -171,7 +189,7 @@ export function App() {
         }
       }
     })();
-  }, [state?.track?.id, playbackMode, selectedDeviceId]);
+  }, [state?.track?.id, playbackMode]);
 
   // Update playback time display (Web SDK only; no server polling in Connect mode)
   useEffect(() => {
@@ -447,18 +465,19 @@ export function App() {
             </div>
           )}
 
-          {isHost && playbackMode === 'connect' && (
+          {isHost && hostHasJoined && playbackMode === 'connect' && (
             <HostPlaybackControls 
               currentTrackId={state?.track?.id} 
               selectedDeviceId={selectedDeviceId}
-              onDeviceSelect={setSelectedDeviceId}
+              onDeviceSelect={handleDeviceSelect}
             />
           )}
 
-          {isHost && (
+          {isHost && hostHasJoined && (
             <HostControls
               user={me}
               group={group}
+              members={members || undefined}
               onStartGame={handleStartGame}
               onPause={handlePause}
               onNextTrack={handleNextTrack}
@@ -469,7 +488,7 @@ export function App() {
             />
           )}
 
-          {isHost && playbackMode === 'websdk' && (
+          {isHost && hostHasJoined && playbackMode === 'websdk' && (
             <PlaybackStatus
               deviceInfo={deviceInfo}
               state={state}
@@ -479,7 +498,7 @@ export function App() {
           )}
 
 
-          {isHost && (
+          {isHost && hostHasJoined && (
             <RevealJudge
               user={me}
               group={group}
@@ -499,7 +518,7 @@ export function App() {
             </div>
           )}
 
-          {isHost && playbackMode === 'websdk' && (
+          {isHost && hostHasJoined && playbackMode === 'websdk' && (
             <MiniPlayer
               sdkState={sdkState}
               state={state}

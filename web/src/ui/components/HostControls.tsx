@@ -9,9 +9,17 @@ interface User {
   role: 'host' | 'player';
 }
 
+interface GameMember {
+  id: string;
+  role: 'host' | 'player';
+  name: string;
+  avatar?: string;
+}
+
 interface HostControlsProps {
   user?: User;
   group: string;
+  members?: GameMember[];
   onStartGame: () => void;
   onPause: () => void;
   onNextTrack: () => void;
@@ -21,7 +29,7 @@ interface HostControlsProps {
   durationMs?: number;
 }
 
-export function HostControls({ user, group, onStartGame, onPause, onNextTrack, index, total, positionMs, durationMs }: HostControlsProps) {
+export function HostControls({ user, group, members, onStartGame, onPause, onNextTrack, index, total, positionMs, durationMs }: HostControlsProps) {
   const fmt = (ms?: number) => {
     if (!ms && ms !== 0) return '—';
     const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -29,19 +37,29 @@ export function HostControls({ user, group, onStartGame, onPause, onNextTrack, i
     const s = totalSec % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
+
+  // Check if the host has actually joined the game
+  const hostHasJoined = user && members?.some(m => m.id === user.id || m.id === `${user.id}#participant`);
+  const controlsDisabled = !user || !group.trim() || !hostHasJoined;
+
   return (
     <Card title="Host Controls" icon="🎮" className="mb-6">
+      {!hostHasJoined && user && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 text-sm px-3 py-2 rounded mb-4">
+          ⚠️ Host must join the game first by selecting music preferences above.
+        </div>
+      )}
       <div className="flex gap-3 flex-wrap items-center">
         <GradientButton
           icon="🚀"
-          disabled={!user || !group.trim()}
+          disabled={controlsDisabled}
           onClick={onStartGame}
         >
           Start Game
         </GradientButton>
         <GradientButton
           icon="⏸️"
-          disabled={!user || !group.trim()}
+          disabled={controlsDisabled}
           onClick={onPause}
         >
           Pause
@@ -49,7 +67,7 @@ export function HostControls({ user, group, onStartGame, onPause, onNextTrack, i
         <GradientButton
           variant="blue"
           icon="⏭️"
-          disabled={!user || !group.trim()}
+          disabled={controlsDisabled}
           onClick={onNextTrack}
         >
           Next Track

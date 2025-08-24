@@ -5,12 +5,12 @@ import cookieSession from 'cookie-session';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
-import { buildSpotifyAuthUrl, exchangeCodeForToken, getMe } from './oauth.js';
-import { scoreGuess } from './modules/scoring.js';
-import { lobby, type SongPreference } from './lobby.js';
-import { store } from './store.js';
-import { getUserPlaylists, getSavedTracks, getRecentlyPlayed } from './spotify.js';
-import { startGame, getState as getGameState, submitGuess, nextTrack, prevTrack, getScores, getAnswer, judge } from './game.js';
+import { buildSpotifyAuthUrl, exchangeCodeForToken, getMe } from './oauth';
+import { scoreGuess } from './modules/scoring';
+import { lobby, type SongPreference } from './lobby';
+import { store } from './store';
+import { getUserPlaylists, getSavedTracks, getRecentlyPlayed } from './spotify';
+import { startGame, getState as getGameState, submitGuess, nextTrack, prevTrack, getScores, getAnswer, judge } from './game';
 import { Resend } from 'resend';
 
 const __filename = fileURLToPath(import.meta.url);
