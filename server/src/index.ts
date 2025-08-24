@@ -51,9 +51,9 @@ app.use(
   cookieSession({
     name: 'mm',
     keys: [process.env.SESSION_SECRET || 'dev-secret'],
-    sameSite: 'lax',
+    sameSite: 'none',
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production'
+    secure: true  // Always require HTTPS for SameSite=None
   })
 );
 
