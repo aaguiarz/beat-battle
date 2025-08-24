@@ -29,6 +29,11 @@ function isValidGroup(g?: string): g is string {
 
 const app = express();
 
+// Trust Railway proxy for secure cookies
+if (isRailway) {
+  app.set('trust proxy', 1);
+}
+
 // Add error handling
 app.on('error', (err) => {
   console.error('Express app error:', err);
@@ -55,7 +60,7 @@ app.use(
     keys: [process.env.SESSION_SECRET || 'dev-secret'],
     sameSite: 'lax',
     httpOnly: true,
-    secure: true,
+    secure: true, // Always secure since we trust proxy in Railway
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   })
 );
@@ -106,6 +111,8 @@ app.get('/auth/login', (req, res) => {
 // OAuth callback placeholder (exchange code for tokens in a real impl.)
 app.get('/auth/callback', async (req, res) => {
   const { code, state } = req.query;
+  console.log('[OAuth] Callback started - Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('[OAuth] Session before:', req.session);
   if (!code || typeof code !== 'string') return res.status(400).send('Missing code');
   try {
     console.log('[OAuth] Starting callback processing...');
@@ -121,7 +128,7 @@ app.get('/auth/callback', async (req, res) => {
     if (req.session) {
       req.session.tokens = tokens;
       req.session.user = { id: me.id, display_name: me.display_name || me.id };
-      console.log('[OAuth] Session set successfully');
+      console.log('[OAuth] Session set successfully - Session after:', req.session);
     } else {
       console.error('[OAuth] No session available!');
     }
@@ -200,8 +207,13 @@ app.post('/api/score', (req, res) => {
 // Return current user profile (minimal)
 app.get('/api/me', async (req, res) => {
   try {
+    console.log('[Me] Request - Session:', req.session);
+    console.log('[Me] Request - Headers:', JSON.stringify(req.headers, null, 2));
     const access = req.session?.tokens?.access_token;
-    if (!access) return res.status(401).json({ error: 'Not authenticated' });
+    if (!access) {
+      console.log('[Me] No access token found in session');
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
     const me = await getMe(access);
     const group = (req.session?.group as string | undefined) || null;
     let role: 'host' | 'player' | null = null;
@@ -226,8 +238,13 @@ app.get('/api/me', async (req, res) => {
 
 // Provide an access token for the Web Playback SDK
 app.get('/api/token', (req, res) => {
+  console.log('[Token] Request - Session:', req.session);
+  console.log('[Token] Request - Headers:', JSON.stringify(req.headers, null, 2));
   const access = req.session?.tokens?.access_token;
-  if (!access) return res.status(401).json({ error: 'Not authenticated' });
+  if (!access) {
+    console.log('[Token] No access token found in session');
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
   res.json({ access_token: access });
 });
 
