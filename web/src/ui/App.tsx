@@ -280,7 +280,7 @@ export function App() {
   if (currentPath === '/game') {
     return (
     <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24, maxWidth: 720 }}>
-      <h1>Musica Maestro</h1>
+      <h1>Spot-the-Track</h1>
       <p>Group: <strong>{group}</strong></p>
       <section style={{ marginTop: 8, color: '#555' }}>
         Share this code with your friends to join: <code style={{ fontWeight: 700 }}>{group}</code>

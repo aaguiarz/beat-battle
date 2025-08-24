@@ -60,7 +60,7 @@ app.use(
     keys: [process.env.SESSION_SECRET || 'dev-secret'],
     sameSite: 'lax',
     httpOnly: true,
-    secure: isRailway, // Only secure in Railway production, not in local development
+    secure: true, // Always secure since we trust proxy in Railway
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   })
 );
@@ -70,7 +70,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.get('/api/version', (_req, res) => {
-  res.json({ name: 'musica-maestro-server', version: '0.0.1' });
+  res.json({ name: 'spot-the-track-server', version: '0.0.1' });
 });
 
 // Build the Spotify authorization URL
@@ -578,7 +578,7 @@ if (webDistPath) {
   // Fallback root route
   app.get('/', (req, res) => {
     res.json({
-      message: 'Musica Maestro API Server',
+      message: 'Spot-the-Track API Server',
       version: '0.0.1',
       note: 'Web app not found - serving API only'
     });

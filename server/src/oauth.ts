@@ -48,7 +48,7 @@ export async function exchangeCodeForToken(input: {
         Authorization: `Basic ${basic}`,
         'Content-Type': 'application/x-www-form-urlencoded',
         Accept: 'application/json',
-        'User-Agent': 'musica-maestro/0.0.1 (+https://localhost)'
+        'User-Agent': 'spot-the-track/0.0.1 (+https://localhost)'
       },
       body
     });

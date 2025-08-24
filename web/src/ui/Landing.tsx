@@ -9,7 +9,7 @@ export function Landing() {
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24, maxWidth: 720 }}>
-      <h1>Musica Maestro</h1>
+      <h1>Spot-the-Track</h1>
       <p>
         A party game powered by Spotify: create a shared playlist from everyone's tastes,
         play songs, and score points by identifying the Title (+1), Artist (+1), and Year (+5).
