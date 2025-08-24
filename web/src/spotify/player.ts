@@ -61,7 +61,7 @@ export async function activatePlayer() {
 export async function transferPlaybackToPlayer() {
   const token = await getAccessToken();
   const id = await ensurePlayer();
-  
+
   // Activate element for mobile autoplay support before transfer
   if (player && player.activateElement) {
     try {
@@ -70,7 +70,7 @@ export async function transferPlaybackToPlayer() {
       console.warn('Failed to activate player element before transfer:', error);
     }
   }
-  
+
   await fetch('https://api.spotify.com/v1/me/player', {
     method: 'PUT',
     headers: {
@@ -84,7 +84,7 @@ export async function transferPlaybackToPlayer() {
 export async function playTrackId(trackId: string, positionMs: number = 0) {
   const token = await getAccessToken();
   const id = await ensurePlayer();
-  
+
   // Activate element for mobile autoplay support before playing
   if (player && player.activateElement) {
     try {
@@ -93,7 +93,7 @@ export async function playTrackId(trackId: string, positionMs: number = 0) {
       console.warn('Failed to activate player element before play:', error);
     }
   }
-  
+
   const uri = `spotify:track:${trackId}`;
   // Ensure playback is on our player, then start
   await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(id)}`, {
@@ -140,6 +140,16 @@ export async function pausePlayback() {
     await player!.pause();
   } catch (e) {
     // Fallback: if pause isn't available, try toggle when playing
+    try { await player!.togglePlay(); } catch {}
+  }
+}
+
+export async function resumePlayback() {
+  await ensurePlayer();
+  try {
+    await player!.resume();
+  } catch (e) {
+    // Fallback: if resume isn't available, try toggle when paused
     try { await player!.togglePlay(); } catch {}
   }
 }

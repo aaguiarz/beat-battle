@@ -27,14 +27,22 @@ interface HostControlsProps {
   total?: number;
   positionMs?: number;
   durationMs?: number;
+  isPaused?: boolean;
+  gameTimer?: number;
 }
 
-export function HostControls({ user, group, members, onStartGame, onPause, onNextTrack, index, total, positionMs, durationMs }: HostControlsProps) {
+export function HostControls({ user, group, members, onStartGame, onPause, onNextTrack, index, total, positionMs, durationMs, isPaused, gameTimer }: HostControlsProps) {
   const fmt = (ms?: number) => {
     if (!ms && ms !== 0) return '—';
     const totalSec = Math.max(0, Math.floor(ms / 1000));
     const m = Math.floor(totalSec / 60);
     const s = totalSec % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const fmtTimer = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
@@ -58,11 +66,11 @@ export function HostControls({ user, group, members, onStartGame, onPause, onNex
           Start Game
         </GradientButton>
         <GradientButton
-          icon="⏸️"
+          icon={isPaused ? "▶️" : "⏸️"}
           disabled={controlsDisabled}
           onClick={onPause}
         >
-          Pause
+          {isPaused ? "Resume" : "Pause"}
         </GradientButton>
         <GradientButton
           variant="blue"
@@ -72,6 +80,13 @@ export function HostControls({ user, group, members, onStartGame, onPause, onNex
         >
           Next Track
         </GradientButton>
+        {typeof gameTimer === 'number' && (
+          <div className="text-slate-300 text-sm ml-2 flex items-center gap-2">
+            <span className="text-lg">⏱️</span>
+            <span>Track Time: <strong className="text-white">{fmtTimer(gameTimer)}</strong></span>
+            {isPaused && <span className="text-yellow-400">(Paused)</span>}
+          </div>
+        )}
         {typeof index === 'number' && typeof total === 'number' && total > 0 && (
           <div className="text-slate-300 text-sm ml-2">
             Track <strong className="text-white">{index + 1}</strong> of <strong className="text-white">{total}</strong>

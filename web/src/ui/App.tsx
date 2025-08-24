@@ -35,7 +35,10 @@ export function App() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(localStorage.getItem('mm_device_id'));
   const [songPreference, setSongPreference] = useState<{ includeLiked: boolean; includeRecent: boolean; includePlaylist: boolean; playlistId?: string }>({ includeLiked: true, includeRecent: false, includePlaylist: false });
   const [playlists, setPlaylists] = useState<Array<{ id: string; name: string; tracks: { total: number } }> | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [gameTimer, setGameTimer] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const gameTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Use custom hooks
   const { user: me, logout, refreshUser } = useAuth();
@@ -44,6 +47,53 @@ export function App() {
   const { toast, showToast } = useToast();
   const clipTimer = useRef<any>(null);
   const clipCfgRef = useRef<{ stopAfterMs: number }>({ stopAfterMs: 0 });
+
+  // Timer management functions
+  const startGameTimer = () => {
+    setGameTimer(0);
+    setIsPaused(false);
+    if (gameTimerRef.current) {
+      clearInterval(gameTimerRef.current);
+    }
+    gameTimerRef.current = setInterval(() => {
+      setGameTimer(prev => prev + 1);
+    }, 1000);
+  };
+
+  const pauseGameTimer = () => {
+    setIsPaused(true);
+    if (gameTimerRef.current) {
+      clearInterval(gameTimerRef.current);
+      gameTimerRef.current = null;
+    }
+  };
+
+  const resumeGameTimer = () => {
+    setIsPaused(false);
+    if (!gameTimerRef.current) {
+      gameTimerRef.current = setInterval(() => {
+        setGameTimer(prev => prev + 1);
+      }, 1000);
+    }
+  };
+
+  const resetGameTimer = () => {
+    setGameTimer(0);
+    setIsPaused(false);
+    if (gameTimerRef.current) {
+      clearInterval(gameTimerRef.current);
+      gameTimerRef.current = null;
+    }
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (gameTimerRef.current) {
+        clearInterval(gameTimerRef.current);
+      }
+    };
+  }, []);
 
   function scheduleAutoStop() {
     const ms = clipCfgRef.current.stopAfterMs;
@@ -55,11 +105,11 @@ export function App() {
   }
 
   const isHost = useMemo(() => me?.role === 'host', [me]);
-  const hostHasJoined = useMemo(() => 
-    me && members?.some(m => m.id === me.id || m.id === `${me.id}#participant`), 
+  const hostHasJoined = useMemo(() =>
+    me && members?.some(m => m.id === me.id || m.id === `${me.id}#participant`),
     [me, members]
   );
-  
+
   const handleDeviceSelect = (deviceId: string | null) => {
     setSelectedDeviceId(deviceId);
     if (deviceId) {
@@ -95,6 +145,7 @@ export function App() {
       setRevealError(null);
       setNavError(null);
       await startGame();
+      startGameTimer(); // Start timer when game starts
       refreshUser();
     } catch (error) {
       setNavError(error instanceof Error ? error.message : 'Failed to start game');
@@ -119,6 +170,7 @@ export function App() {
       setRevealError(null);
       setNavError(null);
       await gameNextTrack();
+      startGameTimer(); // Restart timer for next track
     } catch (error) {
       setNavError(error instanceof Error ? error.message : 'Failed to go to next track');
     }
@@ -127,13 +179,28 @@ export function App() {
   const handlePause = async () => {
     try {
       const chosen = localStorage.getItem('mm_device_id');
-      if (playbackMode === 'connect' && chosen) {
-        await pauseConnect(chosen);
+
+      if (!isPaused) {
+        // Pause playback and timer
+        if (playbackMode === 'connect' && chosen) {
+          await pauseConnect(chosen);
+        } else {
+          await pausePlayback();
+        }
+        pauseGameTimer();
       } else {
-        await pausePlayback();
+        // Resume playback and timer
+        if (playbackMode === 'connect' && chosen) {
+          const { resume } = await import('../utils/playback');
+          await resume(chosen);
+        } else {
+          const { resumePlayback } = await import('../spotify/player');
+          await resumePlayback();
+        }
+        resumeGameTimer();
       }
     } catch (error) {
-      setNavError(error instanceof Error ? error.message : 'Failed to pause');
+      setNavError(error instanceof Error ? error.message : `Failed to ${isPaused ? 'resume' : 'pause'}`);
     }
   };
 
@@ -466,8 +533,8 @@ export function App() {
           )}
 
           {isHost && hostHasJoined && playbackMode === 'connect' && (
-            <HostPlaybackControls 
-              currentTrackId={state?.track?.id} 
+            <HostPlaybackControls
+              currentTrackId={state?.track?.id}
               selectedDeviceId={selectedDeviceId}
               onDeviceSelect={handleDeviceSelect}
             />
@@ -485,6 +552,8 @@ export function App() {
               total={state?.total}
               positionMs={playbackMode === 'websdk' ? positionMs : undefined}
               durationMs={playbackMode === 'websdk' ? durationMs : undefined}
+              isPaused={isPaused}
+              gameTimer={gameTimer}
             />
           )}
 

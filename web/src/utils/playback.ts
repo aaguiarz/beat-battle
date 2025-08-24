@@ -44,6 +44,16 @@ export async function pause(deviceId?: string): Promise<void> {
   if (!r.ok) throw new Error('pause_failed');
 }
 
+export async function resume(deviceId: string): Promise<void> {
+  const r = await fetch('/api/playback/play', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ deviceId })
+  });
+  if (!r.ok) throw new Error('resume_failed');
+}
+
 export async function next(deviceId?: string): Promise<void> {
   const r = await fetch('/api/playback/next', {
     method: 'POST',
