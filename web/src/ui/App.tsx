@@ -601,51 +601,6 @@ export function App() {
             </div>
           )}
 
-          {state?.track?.id && (
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                <span className="text-2xl mr-2">❤️</span>
-                Like This Track
-              </h3>
-              <div className="text-center">
-                <button 
-                  disabled={likeBusy} 
-                  onClick={async () => {
-                    try {
-                      setLikeBusy(true);
-                      const r = await fetch(`/api/track/${encodeURIComponent(state.track.id)}/like`, {
-                        method: 'POST', credentials: 'include'
-                      });
-                      if (r.ok) {
-                        setToast('Added to your Liked Songs');
-                      } else {
-                        const t = await r.text();
-                        setToast(t || 'Failed to like');
-                      }
-                    } catch (e) {
-                      setToast((e as Error).message);
-                    } finally {
-                      setLikeBusy(false);
-                      setTimeout(() => setToast(null), 2000);
-                    }
-                  }}
-                  className="bg-gradient-to-r from-pink-600 to-red-500 hover:from-pink-500 hover:to-red-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-pink-500/25 flex items-center gap-2 mx-auto"
-                >
-                  {likeBusy ? (
-                    <>
-                      <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                      Adding...
-                    </>
-                  ) : (
-                    <>
-                      <span>💕</span>
-                      Add to Spotify Liked Songs
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Toast */}
           {toast && (
