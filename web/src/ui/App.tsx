@@ -33,6 +33,7 @@ export function App() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string>('');
   const [toast, setToast] = useState<string | null>(null);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [songPreference, setSongPreference] = useState<{ includeLiked: boolean; includeRecent: boolean; includePlaylist: boolean; playlistId?: string }>({ includeLiked: true, includeRecent: false, includePlaylist: false });
   const [playlists, setPlaylists] = useState<Array<{ id: string; name: string; tracks: { total: number } }> | null>(null);
   const isHost = React.useMemo(() => me?.role === 'host', [me]);
@@ -504,6 +505,30 @@ export function App() {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {state?.track?.id && (
+        <section style={{ marginTop: 12 }}>
+          <button disabled={likeBusy} onClick={async () => {
+            try {
+              setLikeBusy(true);
+              const r = await fetch(`/api/track/${encodeURIComponent(state.track.id)}/like`, {
+                method: 'POST', credentials: 'include'
+              });
+              if (r.ok) {
+                setToast('Added to your Liked Songs');
+              } else {
+                const t = await r.text();
+                setToast(t || 'Failed to like');
+              }
+            } catch (e) {
+              setToast((e as Error).message);
+            } finally {
+              setLikeBusy(false);
+              setTimeout(() => setToast(null), 2000);
+            }
+          }}>Like this song in Spotify</button>
         </section>
       )}
 

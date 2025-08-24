@@ -49,9 +49,9 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-app.use(cors({ 
+app.use(cors({
   origin: WEB_URL,
-  credentials: true 
+  credentials: true
 }));
 app.use(express.json());
 app.use(
@@ -60,7 +60,7 @@ app.use(
     keys: [process.env.SESSION_SECRET || 'dev-secret'],
     sameSite: 'lax',
     httpOnly: true,
-    secure: true, // Always secure since we trust proxy in Railway
+    secure: isRailway, // Only secure in Railway production, not in local development
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   })
 );
@@ -83,6 +83,7 @@ app.get('/auth/login', (req, res) => {
     'user-top-read',
     'user-read-recently-played',
     'user-library-read',
+    'user-library-modify',
     'user-read-email',
     'user-read-private',
     'playlist-read-private',
@@ -124,7 +125,7 @@ app.get('/auth/callback', async (req, res) => {
     });
     const me = await getMe(tokens.access_token);
     console.log('[OAuth] Got user info:', me.id);
-    
+
     if (req.session) {
       req.session.tokens = tokens;
       req.session.user = { id: me.id, display_name: me.display_name || me.id };
@@ -132,7 +133,7 @@ app.get('/auth/callback', async (req, res) => {
     } else {
       console.error('[OAuth] No session available!');
     }
-    
+
     const avatar = me.images?.[0]?.url;
     store.saveUser(me.id, me.display_name || me.id, tokens, avatar);
 
@@ -269,6 +270,25 @@ app.post('/api/logout', (req, res) => {
 // Public config for the web app
 app.get('/api/config', (_req, res) => {
   res.json({ allowHostParticipant: ALLOW_HOST_AS_PARTICIPANT });
+});
+
+// Like (save) current track to user's library
+app.post('/api/track/:id/like', async (req, res) => {
+  try {
+    const access = req.session?.tokens?.access_token;
+    if (!access) return res.status(401).json({ error: 'Not authenticated' });
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: 'Missing track id' });
+    const resp = await fetch(`https://api.spotify.com/v1/me/tracks?ids=${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${access}`, 'Content-Type': 'application/json' }
+    });
+    if (resp.status === 200 || resp.status === 201 || resp.status === 204) return res.json({ ok: true });
+    const text = await resp.text();
+    return res.status(resp.status).json({ error: text || 'Failed to like track' });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
 });
 
 // Get user's playlists for selection (20 most recent)
@@ -532,17 +552,17 @@ for (const webPath of possibleWebPaths) {
 
 if (webDistPath) {
   console.log('Serving web app from:', webDistPath);
-  
+
   // Serve static files
   app.use(express.static(webDistPath));
-  
+
   // Catch-all handler for client-side routing (AFTER all API routes)
   app.get('*', (req, res) => {
     // Only serve index.html for non-API routes
     if (req.path.startsWith('/api/') || req.path.startsWith('/auth/') || req.path === '/health') {
       return res.status(404).json({ error: 'API endpoint not found' });
     }
-    
+
     const indexPath = path.join(webDistPath!, 'index.html');
     res.sendFile(indexPath, (err) => {
       if (err) {
@@ -554,7 +574,7 @@ if (webDistPath) {
 } else {
   console.warn('Could not find web build directory. API-only mode.');
   console.log('Checked paths:', possibleWebPaths);
-  
+
   // Fallback root route
   app.get('/', (req, res) => {
     res.json({
