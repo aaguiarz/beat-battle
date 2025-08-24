@@ -26,6 +26,22 @@ function isValidGroup(g?: string): g is string {
 }
 
 const app = express();
+
+// Add error handling
+app.on('error', (err) => {
+  console.error('Express app error:', err);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
 app.use(cors({ origin: '*'}));
 app.use(express.json());
 app.use(
@@ -474,4 +490,9 @@ console.log('API-only mode for testing');
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server listening on ${BASE_URL}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Port: ${PORT}`);
+}).on('error', (err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
