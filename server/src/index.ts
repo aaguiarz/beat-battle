@@ -489,8 +489,9 @@ if (webDistPath) {
   console.log('Serving web app from:', webDistPath);
   app.use(express.static(webDistPath));
 
-  // Catch-all handler: send back React's index.html file for client-side routing
-  app.get('*', (req, res) => {
+  // Catch-all handler for client-side routing: serve React's index.html
+  // Only for routes that don't start with /api, /auth, /health
+  app.get(/^(?!\/api|\/auth|\/health).*/, (req, res) => {
     const indexPath = path.join(webDistPath!, 'index.html');
     res.sendFile(indexPath, (err) => {
       if (err) {
