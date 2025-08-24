@@ -472,6 +472,6 @@ app.post('/api/game/:group/judge', (req, res) => {
 // Temporarily disable static file serving to test API functionality
 console.log('API-only mode for testing');
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server listening on ${BASE_URL}`);
 });
