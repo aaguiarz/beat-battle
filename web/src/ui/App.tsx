@@ -601,29 +601,51 @@ export function App() {
             </div>
           )}
 
-      {state?.track?.id && (
-        <section className="mt-3">
-          <button disabled={likeBusy} onClick={async () => {
-            try {
-              setLikeBusy(true);
-              const r = await fetch(`/api/track/${encodeURIComponent(state.track.id)}/like`, {
-                method: 'POST', credentials: 'include'
-              });
-              if (r.ok) {
-                setToast('Added to your Liked Songs');
-              } else {
-                const t = await r.text();
-                setToast(t || 'Failed to like');
-              }
-            } catch (e) {
-              setToast((e as Error).message);
-            } finally {
-              setLikeBusy(false);
-              setTimeout(() => setToast(null), 2000);
-            }
-          }}>Like this song in Spotify</button>
-        </section>
-      )}
+          {state?.track?.id && (
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                <span className="text-2xl mr-2">❤️</span>
+                Like This Track
+              </h3>
+              <div className="text-center">
+                <button 
+                  disabled={likeBusy} 
+                  onClick={async () => {
+                    try {
+                      setLikeBusy(true);
+                      const r = await fetch(`/api/track/${encodeURIComponent(state.track.id)}/like`, {
+                        method: 'POST', credentials: 'include'
+                      });
+                      if (r.ok) {
+                        setToast('Added to your Liked Songs');
+                      } else {
+                        const t = await r.text();
+                        setToast(t || 'Failed to like');
+                      }
+                    } catch (e) {
+                      setToast((e as Error).message);
+                    } finally {
+                      setLikeBusy(false);
+                      setTimeout(() => setToast(null), 2000);
+                    }
+                  }}
+                  className="bg-gradient-to-r from-pink-600 to-red-500 hover:from-pink-500 hover:to-red-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-pink-500/25 flex items-center gap-2 mx-auto"
+                >
+                  {likeBusy ? (
+                    <>
+                      <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <span>💕</span>
+                      Add to Spotify Liked Songs
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Toast */}
           {toast && (
@@ -635,50 +657,80 @@ export function App() {
             </div>
           )}
 
-      {isHost && (
-        <section className="mt-6">
-          <button disabled={!me || !group.trim()} onClick={async () => {
-            try { await transferPlaybackToPlayer(); } catch {}
-            setAnswer(null);
-            setJudgement({ titleOk: false, artistOk: false, yearOk: false });
-            setLastPoints(null);
-            setRevealError(null);
-            await fetchPlayableStart();
-            try {
-              const rm = await fetch('/api/me', { credentials: 'include' });
-              if (rm.ok) setMe(await rm.json());
-            } catch {}
-          }}>Start game</button>
-          <button className="ml-3" disabled={!me || !group.trim()} onClick={async () => {
-            try { await transferPlaybackToPlayer(); } catch {}
-            setAnswer(null);
-            setJudgement({ titleOk: false, artistOk: false, yearOk: false });
-            setLastPoints(null);
-            setRevealError(null);
-            await fetchPlayableNext();
-          }}>Next track</button>
-        </section>
-      )}
+          {isHost && (
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                <span className="text-2xl mr-2">🎮</span>
+                Host Controls
+              </h3>
+              <div className="flex gap-3 flex-wrap">
+                <button 
+                  disabled={!me || !group.trim()} 
+                  onClick={async () => {
+                    try { await transferPlaybackToPlayer(); } catch {}
+                    setAnswer(null);
+                    setJudgement({ titleOk: false, artistOk: false, yearOk: false });
+                    setLastPoints(null);
+                    setRevealError(null);
+                    await fetchPlayableStart();
+                    try {
+                      const rm = await fetch('/api/me', { credentials: 'include' });
+                      if (rm.ok) setMe(await rm.json());
+                    } catch {}
+                  }}
+                  className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-green-500/25"
+                >
+                  🚀 Start Game
+                </button>
+                <button 
+                  className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-blue-500/25" 
+                  disabled={!me || !group.trim()} 
+                  onClick={async () => {
+                    try { await transferPlaybackToPlayer(); } catch {}
+                    setAnswer(null);
+                    setJudgement({ titleOk: false, artistOk: false, yearOk: false });
+                    setLastPoints(null);
+                    setRevealError(null);
+                    await fetchPlayableNext();
+                  }}
+                >
+                  ⏭️ Next Track
+                </button>
+              </div>
+            </div>
+          )}
 
-      {isHost && (
-      <section className="mt-3">
-        <audio ref={audioRef} controls className="hidden" />
-        <div className="mt-2 text-xs text-gray-600">
-          Playing via Spotify Web Playback SDK (requires Premium)
-        </div>
-        <div className={`mt-1 text-xs ${deviceInfo?.is_active ? 'text-green-500' : 'text-red-600'}`}>
-          Device: {deviceInfo?.name || 'Web Player'} — {deviceInfo?.is_active ? 'active' : 'inactive'}
-        </div>
-        {state?.index !== undefined && state?.total !== undefined && (
-          <div className="mt-1 text-xs text-gray-600">
-            Track {state.index + 1} of {state.total}
-          </div>
-        )}
-        {navError && (
-          <div className="mt-2 text-red-600">{navError}</div>
-        )}
-      </section>
-      )}
+          {isHost && (
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                <span className="text-2xl mr-2">🎵</span>
+                Playback Status
+              </h3>
+              <audio ref={audioRef} controls className="hidden" />
+              <div className="space-y-2">
+                <div className="text-sm text-slate-300 flex items-center gap-2">
+                  <span className="text-lg">🎧</span>
+                  Playing via Spotify Web Playback SDK (requires Premium)
+                </div>
+                <div className={`text-sm flex items-center gap-2 ${deviceInfo?.is_active ? 'text-green-400' : 'text-red-400'}`}>
+                  <span>{deviceInfo?.is_active ? '✅' : '❌'}</span>
+                  Device: <strong>{deviceInfo?.name || 'Web Player'}</strong> — {deviceInfo?.is_active ? 'active' : 'inactive'}
+                </div>
+                {state?.index !== undefined && state?.total !== undefined && (
+                  <div className="text-sm text-slate-300 flex items-center gap-2">
+                    <span className="text-lg">📊</span>
+                    Track <strong>{state.index + 1}</strong> of <strong>{state.total}</strong>
+                  </div>
+                )}
+                {navError && (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
+                    <span className="text-lg mr-2">⚠️</span>
+                    {navError}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
       {/* Mini player bar */}
       {isHost && (
@@ -715,33 +767,90 @@ export function App() {
       </div>
       )}
 
-      {isHost && (
-      <section className="mt-6">
-        <h3>Reveal & judge</h3>
-        <div className="flex items-center gap-3 flex-wrap">
-          <button disabled={!me || !group.trim() || !state?.track?.id} onClick={async () => {
-            setRevealError(null);
-            try {
-              const r = await fetch(`/api/game/${encodeURIComponent(group)}/reveal`, { credentials: 'include' });
-              if (!r.ok) {
-                const t = await r.text();
-                setRevealError(t);
-                return;
-              }
-              const data = await r.json();
-              if (data?.answer) setAnswer(data.answer);
-            } catch (e) {
-              setRevealError((e as Error).message);
-            }
-          }}>Reveal answer</button>
+          {isHost && (
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                <span className="text-2xl mr-2">📋</span>
+                Reveal & Judge
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <button 
+                    disabled={!me || !group.trim() || !state?.track?.id} 
+                    onClick={async () => {
+                      setRevealError(null);
+                      try {
+                        const r = await fetch(`/api/game/${encodeURIComponent(group)}/reveal`, { credentials: 'include' });
+                        if (!r.ok) {
+                          const t = await r.text();
+                          setRevealError(t);
+                          return;
+                        }
+                        const data = await r.json();
+                        if (data?.answer) setAnswer(data.answer);
+                      } catch (e) {
+                        setRevealError((e as Error).message);
+                      }
+                    }}
+                    className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-purple-500/25"
+                  >
+                    🔍 Reveal Answer
+                  </button>
+                </div>
 
-          <label><input type="checkbox" checked={judgement.titleOk} onChange={(e) => setJudgement({ ...judgement, titleOk: e.target.checked })} /> Title correct (+1)</label>
-          <label><input type="checkbox" checked={judgement.artistOk} onChange={(e) => setJudgement({ ...judgement, artistOk: e.target.checked })} /> Artist correct (+1)</label>
-          <label><input type="checkbox" checked={judgement.yearOk} onChange={(e) => setJudgement({ ...judgement, yearOk: e.target.checked })} /> Year correct (+5)</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-green-500/50 cursor-pointer transition-colors">
+                    <input 
+                      type="checkbox" 
+                      checked={judgement.titleOk} 
+                      onChange={(e) => setJudgement({ ...judgement, titleOk: e.target.checked })} 
+                      className="w-4 h-4 text-green-500 bg-slate-700 border-slate-500 rounded focus:ring-green-500 focus:ring-2"
+                    />
+                    <span className="text-white flex items-center gap-2">
+                      <span className="text-lg">🎵</span>
+                      <div>
+                        <div className="font-medium">Title correct</div>
+                        <div className="text-xs text-slate-400">+1 point</div>
+                      </div>
+                    </span>
+                  </label>
 
-        </div>
-        {answer && (
-          <div className="mt-3 flex items-center gap-4 p-3 border border-gray-300 rounded-lg bg-black text-white">
+                  <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-blue-500/50 cursor-pointer transition-colors">
+                    <input 
+                      type="checkbox" 
+                      checked={judgement.artistOk} 
+                      onChange={(e) => setJudgement({ ...judgement, artistOk: e.target.checked })} 
+                      className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-500 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                    <span className="text-white flex items-center gap-2">
+                      <span className="text-lg">🎤</span>
+                      <div>
+                        <div className="font-medium">Artist correct</div>
+                        <div className="text-xs text-slate-400">+1 point</div>
+                      </div>
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-purple-500/50 cursor-pointer transition-colors">
+                    <input 
+                      type="checkbox" 
+                      checked={judgement.yearOk} 
+                      onChange={(e) => setJudgement({ ...judgement, yearOk: e.target.checked })} 
+                      className="w-4 h-4 text-purple-500 bg-slate-700 border-slate-500 rounded focus:ring-purple-500 focus:ring-2"
+                    />
+                    <span className="text-white flex items-center gap-2">
+                      <span className="text-lg">📅</span>
+                      <div>
+                        <div className="font-medium">Year correct</div>
+                        <div className="text-xs text-slate-400">+5 points</div>
+                      </div>
+                    </span>
+                  </label>
+                </div>
+              </div>
+              {answer && (
+                <div className="mt-6 flex items-center gap-4 p-4 border border-slate-600 rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-xl">
             <img
               src={state?.track?.album?.images?.[0]?.url || state?.track?.album?.images?.[1]?.url}
               alt={answer.title}
@@ -782,18 +891,24 @@ export function App() {
             </div>
           </div>
         )}
-        {revealError && (
-          <div className="mt-2 text-red-600">
-            {revealError}
-          </div>
-        )}
-        {lastPoints !== null && (
-          <div className="mt-2">
-            Awarded: <strong>{lastPoints}</strong> point{lastPoints === 1 ? '' : 's'}
-          </div>
-        )}
-      </section>
-      )}
+              {revealError && (
+                <div className="mt-4 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">⚠️</span>
+                    {revealError}
+                  </div>
+                </div>
+              )}
+              {lastPoints !== null && (
+                <div className="mt-4 bg-green-500/10 border border-green-500/30 rounded-lg p-3 text-center">
+                  <div className="text-green-400 font-semibold flex items-center justify-center gap-2">
+                    <span className="text-lg">🎆</span>
+                    Awarded: <strong className="text-white text-lg">{lastPoints}</strong> point{lastPoints === 1 ? '' : 's'}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
       {!isHost && answer && (
         <section className="mt-6">
