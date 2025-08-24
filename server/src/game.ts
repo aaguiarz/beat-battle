@@ -7,6 +7,7 @@ type Game = {
   current: number; // index into trackIds
   scores: Map<string, number>; // userId -> points
   attributions: Record<string, TrackAttribution>; // trackId -> attribution
+  lastAnswer?: { title: string; artist: string; year: number; trackId: string; attribution?: TrackAttribution };
 };
 
 const games = new Map<string, Game>();
@@ -35,7 +36,7 @@ export async function startGame(opts: { group: string; accessToken: string; seed
     const ids = agg.tracks.map((t) => t.id).filter(Boolean).slice(0, 100);
     console.log(`[Game Debug] Aggregation returned ${agg.tracks.length} tracks, filtered to ${ids.length} IDs`);
     console.log(`[Game Debug] User contribution:`, Object.keys(agg.byUser).map(uid => `${uid}: ${agg.byUser[uid].length} tracks`));
-    game = { group, trackIds: ids, current: 0, scores: new Map(), attributions: agg.attributions };
+    game = { group, trackIds: ids, current: 0, scores: new Map(), attributions: agg.attributions, lastAnswer: undefined };
     games.set(group, game);
   }
   if (!game.trackIds.length) {
@@ -46,7 +47,7 @@ export async function startGame(opts: { group: string; accessToken: string; seed
   game.current = got.idx;
   const t = got.track;
   const contrib = computeContrib(game);
-  return { track: t ? { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } : undefined, index: game.current, total: game.trackIds.length, contrib } as any;
+  return { track: t ? { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } : undefined, index: game.current, total: game.trackIds.length, contrib, answer: game.lastAnswer } as any;
 }
 
 export async function getState(opts: { group: string; accessToken: string }) {
@@ -58,7 +59,7 @@ export async function getState(opts: { group: string; accessToken: string }) {
   game.current = got.idx;
   const t = got.track!;
   const contrib = computeContrib(game);
-  return { group, index: game.current, total: game.trackIds.length, track: { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms }, contrib } as any;
+  return { group, index: game.current, total: game.trackIds.length, track: { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms }, contrib, answer: game.lastAnswer } as any;
 }
 
 export async function submitGuess(opts: { group: string; accessToken: string; userId: string; guess: { title?: string; artist?: string; year?: number } }) {
@@ -83,9 +84,11 @@ export async function nextTrack(opts: { group: string; accessToken: string }): P
   const start = (game.current + 1) % game.trackIds.length;
   const got = await getIndexAndTrack(accessToken, game.trackIds, start);
   game.current = got.idx;
+  // Clear revealed answer on track advance
+  game.lastAnswer = undefined;
   const t = got.track;
   const contrib = computeContrib(game);
-  return { index: game.current, total: game.trackIds.length, track: t ? { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } : undefined, contrib } as any;
+  return { index: game.current, total: game.trackIds.length, track: t ? { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } : undefined, contrib, answer: game.lastAnswer } as any;
 }
 
 export async function prevTrack(opts: { group: string; accessToken: string }): Promise<{ index: number; total: number; track?: Pick<SimpleTrack, 'id' | 'preview_url' | 'album' | 'duration_ms'> }> {
@@ -109,7 +112,8 @@ export async function getAnswer(opts: { group: string; accessToken: string }) {
   const artist = t.artists[0]?.name || '';
   const year = yearFromRelease(t.album.release_date) || 0;
   const attribution = game.attributions[t.id];
-  return { title, artist, year, trackId: t.id, attribution };
+  game.lastAnswer = { title, artist, year, trackId: t.id, attribution };
+  return game.lastAnswer;
 }
 
 export function judge(opts: { group: string; userId: string; titleOk: boolean; artistOk: boolean; yearOk: boolean }) {

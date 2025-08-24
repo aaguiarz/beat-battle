@@ -209,7 +209,7 @@ export function App() {
     let iv: any;
     const fetchMembers = async () => {
       try {
-        const r = await fetch(`/api/lobby/${encodeURIComponent(group)}`);
+        const r = await fetch(`/api/lobby/${encodeURIComponent(group)}`, { credentials: 'include' });
         if (r.ok) {
           const data = await r.json();
           setMembers(data.members || null);
@@ -231,6 +231,8 @@ export function App() {
         if (r.ok) {
           const data = await r.json();
           setState((prev: any) => ({ ...prev, ...data }));
+          if (data?.answer) setAnswer(data.answer);
+          else setAnswer(null);
         }
       } catch {}
     };
@@ -434,7 +436,8 @@ export function App() {
                     const r = await fetch('/api/lobby/join', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ group, preference: songPreference })
+                      body: JSON.stringify({ group, preference: songPreference }),
+                      credentials: 'include'
                     });
                     const data = await r.json();
                     if (r.ok) {
@@ -687,6 +690,52 @@ export function App() {
           </div>
         )}
       </section>
+      )}
+
+      {!isHost && answer && (
+        <section style={{ marginTop: 24 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 16, padding: 12,
+            border: '1px solid #e5e5e5', borderRadius: 8, background: '#0a0a0a', color: '#fff'
+          }}>
+            <img
+              src={state?.track?.album?.images?.[0]?.url || state?.track?.album?.images?.[1]?.url}
+              alt={answer.title}
+              style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 4 }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{answer.title}</div>
+              <div style={{ opacity: 0.85, marginTop: 2 }}>{answer.artist}</div>
+              <div style={{ opacity: 0.7, marginTop: 2 }}>Album: {state?.track?.album?.name || '—'}</div>
+              <div style={{ opacity: 0.7, marginTop: 2 }}>Year: {answer.year} · Duration: {formatDuration(state?.track?.duration_ms)}</div>
+              {answer.attribution && (
+                <div style={{ marginTop: 8, padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: '#1db954' }}>Song Sources:</div>
+                  {answer.attribution.sources.map((source, idx) => (
+                    <div key={idx} style={{ fontSize: 11, opacity: 0.9, marginBottom: 2 }}>
+                      <strong>{source.userName}</strong> - {
+                        source.sourceType === 'liked' ? 'Liked Songs' :
+                        source.sourceType === 'recent' ? 'Recently Played' :
+                        source.sourceType === 'playlist' ? (source.sourceDetail || 'Playlist') :
+                        'Top Tracks'
+                      }
+                    </div>
+                  ))}
+                </div>
+              )}
+              {state?.track?.id && (
+                <a
+                  href={`https://open.spotify.com/track/${state.track.id}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  style={{ marginTop: 8, color: '#1db954', textDecoration: 'none', fontWeight: 600 }}
+                >
+                  Open in Spotify
+                </a>
+              )}
+            </div>
+          </div>
+        </section>
       )}
 
     </div>
