@@ -32,7 +32,7 @@ export function App() {
   const [qrVisible, setQrVisible] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string>('');
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = ucurlseState<string | null>(null);
   const [likeBusy, setLikeBusy] = useState(false);
   const [songPreference, setSongPreference] = useState<{ includeLiked: boolean; includeRecent: boolean; includePlaylist: boolean; playlistId?: string }>({ includeLiked: true, includeRecent: false, includePlaylist: false });
   const [playlists, setPlaylists] = useState<Array<{ id: string; name: string; tracks: { total: number } }> | null>(null);
@@ -290,7 +290,7 @@ export function App() {
                 🎵 Beat Battle
               </h1>
             </div>
-            
+
             {/* User Info - Top Right on desktop, below title on mobile */}
             {me && (
               <div className="flex items-center justify-center lg:justify-end gap-3 order-2 lg:order-2">
@@ -303,7 +303,7 @@ export function App() {
                   </div>
                   <div className="text-slate-400 text-xs">({me.id})</div>
                 </div>
-                <button 
+                <button
                   className="bg-red-600 hover:bg-red-500 text-white font-medium py-1.5 px-3 rounded-lg transition-colors text-sm"
                   onClick={async () => {
                     try {
@@ -593,13 +593,13 @@ export function App() {
                 Host Controls
               </h3>
               <div className="flex gap-3 flex-wrap">
-                <button 
-                  disabled={!me || !group.trim()} 
+                <button
+                  disabled={!me || !group.trim()}
                   onClick={async () => {
-                    try { 
+                    try {
                       // Activate player for mobile autoplay support first
                       await activatePlayer();
-                      await transferPlaybackToPlayer(); 
+                      await transferPlaybackToPlayer();
                     } catch {}
                     setAnswer(null);
                     setJudgement({ titleOk: false, artistOk: false, yearOk: false });
@@ -615,14 +615,14 @@ export function App() {
                 >
                   🚀 Start Game
                 </button>
-                <button 
-                  className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-blue-500/25" 
-                  disabled={!me || !group.trim()} 
+                <button
+                  className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-blue-500/25"
+                  disabled={!me || !group.trim()}
                   onClick={async () => {
-                    try { 
+                    try {
                       // Activate player for mobile autoplay support first
                       await activatePlayer();
-                      await transferPlaybackToPlayer(); 
+                      await transferPlaybackToPlayer();
                     } catch {}
                     setAnswer(null);
                     setJudgement({ titleOk: false, artistOk: false, yearOk: false });
@@ -676,11 +676,11 @@ export function App() {
                 <span className="text-2xl mr-2">📋</span>
                 Reveal & Judge
               </h3>
-              
+
               <div className="space-y-4">
                 <div className="flex justify-center">
-                  <button 
-                    disabled={!me || !group.trim() || !state?.track?.id} 
+                  <button
+                    disabled={!me || !group.trim() || !state?.track?.id}
                     onClick={async () => {
                       setRevealError(null);
                       try {
@@ -704,10 +704,10 @@ export function App() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-green-500/50 cursor-pointer transition-colors">
-                    <input 
-                      type="checkbox" 
-                      checked={judgement.titleOk} 
-                      onChange={(e) => setJudgement({ ...judgement, titleOk: e.target.checked })} 
+                    <input
+                      type="checkbox"
+                      checked={judgement.titleOk}
+                      onChange={(e) => setJudgement({ ...judgement, titleOk: e.target.checked })}
                       className="w-4 h-4 text-green-500 bg-slate-700 border-slate-500 rounded focus:ring-green-500 focus:ring-2"
                     />
                     <span className="text-white flex items-center gap-2">
@@ -720,10 +720,10 @@ export function App() {
                   </label>
 
                   <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-blue-500/50 cursor-pointer transition-colors">
-                    <input 
-                      type="checkbox" 
-                      checked={judgement.artistOk} 
-                      onChange={(e) => setJudgement({ ...judgement, artistOk: e.target.checked })} 
+                    <input
+                      type="checkbox"
+                      checked={judgement.artistOk}
+                      onChange={(e) => setJudgement({ ...judgement, artistOk: e.target.checked })}
                       className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-500 rounded focus:ring-blue-500 focus:ring-2"
                     />
                     <span className="text-white flex items-center gap-2">
@@ -736,10 +736,10 @@ export function App() {
                   </label>
 
                   <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-purple-500/50 cursor-pointer transition-colors">
-                    <input 
-                      type="checkbox" 
-                      checked={judgement.yearOk} 
-                      onChange={(e) => setJudgement({ ...judgement, yearOk: e.target.checked })} 
+                    <input
+                      type="checkbox"
+                      checked={judgement.yearOk}
+                      onChange={(e) => setJudgement({ ...judgement, yearOk: e.target.checked })}
                       className="w-4 h-4 text-purple-500 bg-slate-700 border-slate-500 rounded focus:ring-purple-500 focus:ring-2"
                     />
                     <span className="text-white flex items-center gap-2">
@@ -859,29 +859,29 @@ export function App() {
           {/* Mini player bar */}
           {isHost && (
             <div className="fixed left-0 right-0 bottom-0 bg-slate-900 text-white px-3 py-2 flex items-center gap-3 border-t border-slate-700 shadow-2xl">
-              <button 
+              <button
                 onClick={async () => {
                   try { await activatePlayer(); } catch {}
                   fetchPlayablePrev().then(() => transferPlaybackToPlayer()).catch(() => {});
-                }} 
+                }}
                 className="bg-slate-800 hover:bg-slate-700 text-white border-0 px-2.5 py-1.5 rounded transition-colors"
               >
                 ⏮
               </button>
-              <button 
+              <button
                 onClick={async () => {
                   try { await activatePlayer(); } catch {}
                   togglePlay();
-                }} 
+                }}
                 className="bg-green-500 hover:bg-green-400 text-black border-0 px-2.5 py-1.5 rounded transition-colors font-medium"
               >
                 {sdkState?.paused ? 'Play' : 'Pause'}
               </button>
-              <button 
+              <button
                 onClick={async () => {
                   try { await activatePlayer(); } catch {}
                   fetchPlayableNext().then(() => transferPlaybackToPlayer()).catch(() => {});
-                }} 
+                }}
                 className="bg-slate-800 hover:bg-slate-700 text-white border-0 px-2.5 py-1.5 rounded transition-colors"
               >
                 ⏭

@@ -80,7 +80,7 @@ export async function exchangeCodeForToken(input: {
   throw new Error(lastErr || 'Token exchange failed');
 }
 
-export async function getMe(accessToken: string): Promise<{ id: string; display_name?: string; images?: Array<{ url: string }> }>{
+export async function getMe(accessToken: string): Promise<{ id: string; display_name?: string; email?: string; images?: Array<{ url: string }> }>{
   const resp = await fetch('https://api.spotify.com/v1/me', {
     headers: { Authorization: `Bearer ${accessToken}` }
   });

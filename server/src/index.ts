@@ -11,6 +11,7 @@ import { lobby, type SongPreference } from './lobby.js';
 import { store } from './store.js';
 import { getUserPlaylists, getSavedTracks, getRecentlyPlayed } from './spotify.js';
 import { startGame, getState as getGameState, submitGuess, nextTrack, prevTrack, getScores, getAnswer, judge } from './game.js';
+import { Resend } from 'resend';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +23,49 @@ const BASE_URL = process.env.BASE_URL || (isRailway ? 'https://beat-battle-produ
 const WEB_URL = process.env.WEB_URL || (isRailway ? 'https://beat-battle-production.up.railway.app' : 'http://127.0.0.1:5173');
 const ALLOW_HOST_AS_PARTICIPANT = String(process.env.ALLOW_HOST_AS_PARTICIPANT || '').toLowerCase() === 'true';
 const LOG_SPOTIFY_API_CALLS = String(process.env.LOG_SPOTIFY_API_CALLS || 'true').toLowerCase() === 'true';
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL;
+
+let resend: Resend | null = null;
+if (RESEND_API_KEY) {
+  resend = new Resend(RESEND_API_KEY);
+  console.log('[Email] Resend configured');
+} else {
+  console.log('[Email] Resend not configured - no RESEND_API_KEY');
+}
+
+async function sendLoginNotification(user: { id: string; display_name?: string; email?: string }) {
+  if (!resend || !NOTIFICATION_EMAIL) {
+    console.log('[Email] Notification skipped - missing Resend config or notification email');
+    return;
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'onboarding@resend.dev',
+      to: [NOTIFICATION_EMAIL],
+      subject: 'New User Login - Beat Battle',
+      html: `
+        <h2>New User Login</h2>
+        <p>A new user has logged in to Beat Battle:</p>
+        <ul>
+          <li><strong>Username:</strong> ${user.id}</li>
+          <li><strong>Display Name:</strong> ${user.display_name || 'Not provided'}</li>
+          <li><strong>Email:</strong> ${user.email || 'Not available'}</li>
+        </ul>
+        <p><em>Timestamp: ${new Date().toISOString()}</em></p>
+      `
+    });
+
+    if (error) {
+      console.error('[Email] Failed to send notification:', error);
+    } else {
+      console.log('[Email] Login notification sent:', data?.id);
+    }
+  } catch (e) {
+    console.error('[Email] Error sending notification:', e);
+  }
+}
 
 function isValidGroup(g?: string): g is string {
   return !!g && /^[A-Za-z0-9]{12}$/.test(g);
@@ -147,6 +191,14 @@ app.get('/auth/callback', async (req, res) => {
       console.error('[OAuth] No session available!');
     }
 
+    // Send login notification email
+    console.log(`[OAuth] Sending login notification for user ${me.id}`);
+    await sendLoginNotification({
+      id: me.id,
+      display_name: me.display_name,
+      email: me.email
+    });
+
     const avatar = me.images?.[0]?.url;
     store.saveUser(me.id, me.display_name || me.id, tokens, avatar);
 
@@ -225,7 +277,7 @@ app.get('/api/me', async (req, res) => {
     console.log('[Me] Request - Headers:', JSON.stringify(req.headers, null, 2));
     console.log('[Me] Session keys:', Object.keys(req.session || {}));
     console.log('[Me] Raw session data:', req.session);
-    
+
     const access = req.session?.tokens?.access_token;
     if (!access) {
       console.log('[Me] No access token found in session. Session object:', req.session);
@@ -260,7 +312,7 @@ app.get('/api/token', (req, res) => {
   console.log('[Token] Request - Headers:', JSON.stringify(req.headers, null, 2));
   console.log('[Token] Session keys:', Object.keys(req.session || {}));
   console.log('[Token] Raw session data:', req.session);
-  
+
   const access = req.session?.tokens?.access_token;
   if (!access) {
     console.log('[Token] No access token found in session. Session object:', req.session);
