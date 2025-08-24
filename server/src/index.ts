@@ -469,50 +469,8 @@ app.post('/api/game/:group/judge', (req, res) => {
   }
 });
 
-// Serve static files from the web build
-// Try multiple possible locations for the web build
-const possibleWebPaths = [
-  path.join(__dirname, '../../web/dist'),  // Local/monorepo structure
-  path.join(__dirname, '../web/dist'),     // Alternative structure
-  path.join(process.cwd(), 'web/dist'),    // From project root
-];
-
-let webDistPath: string | null = null;
-for (const webPath of possibleWebPaths) {
-  if (existsSync(path.join(webPath, 'index.html'))) {
-    webDistPath = webPath;
-    break;
-  }
-}
-
-if (webDistPath) {
-  console.log('Serving web app from:', webDistPath);
-  app.use(express.static(webDistPath));
-
-  // Catch-all handler for client-side routing: serve React's index.html
-  // Only for routes that don't start with /api, /auth, /health
-  app.get(/^(?!\/api|\/auth|\/health).*/, (req, res) => {
-    const indexPath = path.join(webDistPath!, 'index.html');
-    res.sendFile(indexPath, (err) => {
-      if (err) {
-        console.error('Error serving index.html:', err);
-        res.status(500).send('Error serving application');
-      }
-    });
-  });
-} else {
-  console.warn('Could not find web build directory. API-only mode.');
-  console.log('Checked paths:', possibleWebPaths);
-
-  // Fallback for missing static files - just serve API
-  app.get('/', (req, res) => {
-    res.json({
-      message: 'Musica Maestro API Server',
-      version: '0.0.1',
-      note: 'Web app not found - serving API only'
-    });
-  });
-}
+// Temporarily disable static file serving to test API functionality
+console.log('API-only mode for testing');
 
 app.listen(PORT, () => {
   console.log(`Server listening on ${BASE_URL}`);
