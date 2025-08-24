@@ -1,0 +1,18 @@
+{
+  "name": "musica-maestro",
+  "private": true,
+  "version": "0.0.1",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run -w server dev & npm run -w web dev",
+    "build": "npm run -w server build && npm run -w web build",
+    "start": "npm run -w server start",
+    "lint": "echo 'Add ESLint config and run eslint'",
+    "format": "echo 'Add Prettier config and run prettier'",
+    "test": "npm run -w server test"
+  }
+}
+

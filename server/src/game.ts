@@ -1,0 +1,118 @@
+import { aggregateGroup } from './aggregate.js';
+import { getTracksByIds, type SimpleTrack } from './spotify.js';
+
+type Game = {
+  group: string;
+  trackIds: string[];
+  current: number; // index into trackIds
+  scores: Map<string, number>; // userId -> points
+};
+
+const games = new Map<string, Game>();
+
+function yearFromRelease(release: string): number | undefined {
+  const m = /^(\d{4})/.exec(release);
+  return m ? Number(m[1]) : undefined;
+}
+
+async function getIndexAndTrack(accessToken: string, ids: string[], index: number): Promise<{ idx: number; track?: SimpleTrack }>{
+  if (!ids.length) return { idx: 0 };
+  const len = ids.length;
+  for (let off = 0; off < len; off++) {
+    const idx = ((index + off) % len + len) % len;
+    const [t] = await getTracksByIds(accessToken, [ids[idx]]);
+    if (t) return { idx, track: t };
+  }
+  return { idx: 0 };
+}
+
+export async function startGame(opts: { group: string; accessToken: string; seed?: number }): Promise<{ track?: Pick<SimpleTrack, 'id' | 'preview_url' | 'album' | 'duration_ms'> } & { index: number; total: number }>{
+  const { group, accessToken, seed } = opts;
+  let game = games.get(group);
+  if (!game) {
+    const agg = await aggregateGroup(group, 120, seed);
+    const ids = agg.tracks.map((t) => t.id).filter(Boolean).slice(0, 100);
+    game = { group, trackIds: ids, current: 0, scores: new Map() };
+    games.set(group, game);
+  }
+  if (!game.trackIds.length) throw new Error('No tracks available for this game');
+  const got = await getIndexAndTrack(accessToken, game.trackIds, game.current);
+  game.current = got.idx;
+  const t = got.track;
+  return { track: t ? { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } : undefined, index: game.current, total: game.trackIds.length };
+}
+
+export async function getState(opts: { group: string; accessToken: string }) {
+  const { group, accessToken } = opts;
+  const game = games.get(group);
+  if (!game) return { group, index: 0, total: 0 };
+  if (!game.trackIds.length) return { group, index: 0, total: 0 };
+  const got = await getIndexAndTrack(accessToken, game.trackIds, game.current);
+  game.current = got.idx;
+  const t = got.track!;
+  return { group, index: game.current, total: game.trackIds.length, track: { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } };
+}
+
+export async function submitGuess(opts: { group: string; accessToken: string; userId: string; guess: { title?: string; artist?: string; year?: number } }) {
+  const { group, accessToken, userId, guess } = opts;
+  const game = games.get(group);
+  if (!game) throw new Error('Game not started');
+  const [t] = await getTracksByIds(accessToken, [game.trackIds[game.current]]);
+  const title = t.name;
+  const artist = t.artists[0]?.name || '';
+  const year = yearFromRelease(t.album.release_date) || 0;
+  const { scoreGuess } = await import('./modules/scoring.js');
+  const points = scoreGuess(guess, { title, artist, year });
+  game.scores.set(userId, (game.scores.get(userId) || 0) + points);
+  return { points, correct: { titleArtist: points >= 1, year: guess.year === year }, answer: { title, artist, year }, trackId: t.id };
+}
+
+export async function nextTrack(opts: { group: string; accessToken: string }): Promise<{ index: number; total: number; track?: Pick<SimpleTrack, 'id' | 'preview_url' | 'album' | 'duration_ms'> }> {
+  const { group, accessToken } = opts;
+  const game = games.get(group);
+  if (!game) throw new Error('Game not started');
+  if (!game.trackIds.length) throw new Error('No tracks available for this game');
+  const start = (game.current + 1) % game.trackIds.length;
+  const got = await getIndexAndTrack(accessToken, game.trackIds, start);
+  game.current = got.idx;
+  const t = got.track;
+  return { index: game.current, total: game.trackIds.length, track: t ? { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } : undefined };
+}
+
+export async function prevTrack(opts: { group: string; accessToken: string }): Promise<{ index: number; total: number; track?: Pick<SimpleTrack, 'id' | 'preview_url' | 'album' | 'duration_ms'> }> {
+  const { group, accessToken } = opts;
+  const game = games.get(group);
+  if (!game) throw new Error('Game not started');
+  if (!game.trackIds.length) throw new Error('No tracks available for this game');
+  const start = (game.current - 1 + game.trackIds.length) % game.trackIds.length;
+  const got = await getIndexAndTrack(accessToken, game.trackIds, start);
+  game.current = got.idx;
+  const t = got.track;
+  return { index: game.current, total: game.trackIds.length, track: t ? { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } : undefined };
+}
+
+export async function getAnswer(opts: { group: string; accessToken: string }) {
+  const { group, accessToken } = opts;
+  const game = games.get(group);
+  if (!game) throw new Error('Game not started');
+  const [t] = await getTracksByIds(accessToken, [game.trackIds[game.current]]);
+  const title = t.name;
+  const artist = t.artists[0]?.name || '';
+  const year = yearFromRelease(t.album.release_date) || 0;
+  return { title, artist, year, trackId: t.id };
+}
+
+export function judge(opts: { group: string; userId: string; titleOk: boolean; artistOk: boolean; yearOk: boolean }) {
+  const { group, userId, titleOk, artistOk, yearOk } = opts;
+  const game = games.get(group);
+  if (!game) throw new Error('Game not started');
+  const points = (titleOk ? 1 : 0) + (artistOk ? 1 : 0) + (yearOk ? 5 : 0);
+  game.scores.set(userId, (game.scores.get(userId) || 0) + points);
+  return { points };
+}
+
+export function getScores(group: string) {
+  const game = games.get(group);
+  if (!game) return {} as Record<string, number>;
+  return Object.fromEntries(game.scores.entries());
+}
