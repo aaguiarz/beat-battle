@@ -2,12 +2,17 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import cookieSession from 'cookie-session';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { buildSpotifyAuthUrl, exchangeCodeForToken, getMe } from './oauth.js';
 import { scoreGuess } from './modules/scoring.js';
 import { lobby, type SongPreference } from './lobby.js';
 import { store } from './store.js';
 import { getUserPlaylists, getSavedTracks, getRecentlyPlayed } from './spotify.js';
 import { startGame, getState as getGameState, submitGuess, nextTrack, prevTrack, getScores, getAnswer, judge } from './game.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT || 4000);
 const BASE_URL = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
@@ -461,6 +466,14 @@ app.post('/api/game/:group/judge', (req, res) => {
   } catch (e) {
     res.status(400).json({ error: (e as Error).message });
   }
+});
+
+// Serve static files from the web build
+app.use(express.static(path.join(__dirname, '../../web/dist')));
+
+// Catch-all handler: send back React's index.html file for client-side routing
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../web/dist/index.html'));
 });
 
 app.listen(PORT, () => {
