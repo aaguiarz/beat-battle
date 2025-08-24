@@ -82,6 +82,12 @@ export function RevealJudge({
           </GradientButton>
         </div>
 
+        {answer && state?.track && (
+          <div className="">
+            <SongCard track={state.track} answer={answer} />
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-green-500/50 cursor-pointer transition-colors">
             <input
@@ -132,11 +138,6 @@ export function RevealJudge({
           </label>
         </div>
       </div>
-      {answer && state?.track && (
-        <div className="mt-6">
-          <SongCard track={state.track} answer={answer} />
-        </div>
-      )}
       {revealError && (
         <div className="mt-4 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400">
           <div className="flex items-center gap-2">

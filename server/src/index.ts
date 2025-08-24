@@ -22,7 +22,9 @@ const isRailway = process.env.RAILWAY_ENVIRONMENT === 'production' || process.en
 const BASE_URL = process.env.BASE_URL || (isRailway ? 'https://beat-battle-production.up.railway.app' : `http://127.0.0.1:${PORT}`);
 const WEB_URL = process.env.WEB_URL || (isRailway ? 'https://beat-battle-production.up.railway.app' : 'http://127.0.0.1:5173');
 const ALLOW_HOST_AS_PARTICIPANT = String(process.env.ALLOW_HOST_AS_PARTICIPANT || '').toLowerCase() === 'true';
+const HOST_PLAYBACK_MODE = (process.env.HOST_PLAYBACK_MODE || 'connect').toLowerCase() === 'websdk' ? 'websdk' : 'connect';
 const LOG_SPOTIFY_API_CALLS = String(process.env.LOG_SPOTIFY_API_CALLS || 'true').toLowerCase() === 'true';
+const CLIP_STOP_AFTER_MS = Number(process.env.CLIP_STOP_AFTER_MS || '0'); // 0 disables auto-stop
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL;
 
@@ -322,6 +324,171 @@ app.get('/api/token', (req, res) => {
   res.json({ access_token: access });
 });
 
+// Clip start endpoint removed: client always starts at 0ms
+
+// --- Spotify Connect playback control endpoints (Host Mode) ---
+// List available Spotify Connect devices for the authenticated user
+app.get('/api/playback/devices', async (req, res) => {
+  try {
+    const access = req.session?.tokens?.access_token;
+    if (!access) return res.status(401).json({ error: 'Not authenticated' });
+    const r = await fetch('https://api.spotify.com/v1/me/player/devices', {
+      headers: { Authorization: `Bearer ${access}` }
+    });
+    const text = await r.text();
+    if (!r.ok) return res.status(r.status).send(text || 'Failed to fetch devices');
+    res.type('application/json').send(text);
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+// Transfer playback to a specific device (optionally start playing)
+app.put('/api/playback/transfer', async (req, res) => {
+  try {
+    const access = req.session?.tokens?.access_token;
+    if (!access) return res.status(401).json({ error: 'Not authenticated' });
+    const { deviceId, play } = req.body || {};
+    if (!deviceId) return res.status(400).json({ error: 'Missing deviceId' });
+    const r = await fetch('https://api.spotify.com/v1/me/player', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${access}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_ids: [deviceId], play: !!play })
+    });
+    if (r.status === 204) return res.json({ ok: true });
+    const text = await r.text();
+    return res.status(r.status).json({ error: text || 'Failed to transfer playback' });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+// Start/resume playback on a device; supports trackId or URI(s) and position
+app.put('/api/playback/play', async (req, res) => {
+  try {
+    const access = req.session?.tokens?.access_token;
+    if (!access) return res.status(401).json({ error: 'Not authenticated' });
+    const { deviceId, trackId, uri, uris, positionMs } = req.body || {};
+    const q = new URLSearchParams();
+    if (deviceId) q.set('device_id', deviceId);
+    const body: any = {};
+    if (trackId) body.uris = [`spotify:track:${trackId}`];
+    else if (uris && Array.isArray(uris) && uris.length) body.uris = uris;
+    else if (uri) body.uris = [uri];
+    if (Number.isFinite(positionMs)) body.position_ms = Math.max(0, Number(positionMs));
+    const url = `https://api.spotify.com/v1/me/player/play${q.toString() ? `?${q.toString()}` : ''}`;
+    const r = await fetch(url, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${access}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (r.status === 204) return res.json({ ok: true });
+    const text = await r.text();
+    return res.status(r.status).json({ error: text || 'Failed to start playback' });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+// Pause playback on a device
+app.put('/api/playback/pause', async (req, res) => {
+  try {
+    const access = req.session?.tokens?.access_token;
+    if (!access) return res.status(401).json({ error: 'Not authenticated' });
+    const { deviceId } = req.body || {};
+    const q = new URLSearchParams();
+    if (deviceId) q.set('device_id', deviceId);
+    const r = await fetch(`https://api.spotify.com/v1/me/player/pause${q.toString() ? `?${q.toString()}` : ''}` , {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${access}` }
+    });
+    if (r.status === 204) return res.json({ ok: true });
+    const text = await r.text();
+    return res.status(r.status).json({ error: text || 'Failed to pause playback' });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+// Seek to position (ms) on a device
+app.put('/api/playback/seek', async (req, res) => {
+  try {
+    const access = req.session?.tokens?.access_token;
+    if (!access) return res.status(401).json({ error: 'Not authenticated' });
+    const { deviceId, positionMs } = req.body || {};
+    if (!Number.isFinite(positionMs)) return res.status(400).json({ error: 'Missing positionMs' });
+    const q = new URLSearchParams({ position_ms: String(Math.max(0, Number(positionMs))) });
+    if (deviceId) q.set('device_id', deviceId);
+    const r = await fetch(`https://api.spotify.com/v1/me/player/seek?${q.toString()}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${access}` }
+    });
+    if (r.status === 204) return res.json({ ok: true });
+    const text = await r.text();
+    return res.status(r.status).json({ error: text || 'Failed to seek' });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+// Queue a URI on a device
+app.post('/api/playback/queue', async (req, res) => {
+  try {
+    const access = req.session?.tokens?.access_token;
+    if (!access) return res.status(401).json({ error: 'Not authenticated' });
+    const { deviceId, uri, trackId } = req.body || {};
+    const q = new URLSearchParams({ uri: uri || (trackId ? `spotify:track:${trackId}` : '') });
+    if (!q.get('uri')) return res.status(400).json({ error: 'Missing uri or trackId' });
+    if (deviceId) q.set('device_id', deviceId);
+    const r = await fetch(`https://api.spotify.com/v1/me/player/queue?${q.toString()}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${access}` }
+    });
+    if (r.status === 204) return res.json({ ok: true });
+    const text = await r.text();
+    return res.status(r.status).json({ error: text || 'Failed to queue track' });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+// Skip to next on a device
+app.post('/api/playback/next', async (req, res) => {
+  try {
+    const access = req.session?.tokens?.access_token;
+    if (!access) return res.status(401).json({ error: 'Not authenticated' });
+    const { deviceId } = req.body || {};
+    const q = new URLSearchParams();
+    if (deviceId) q.set('device_id', deviceId);
+    const r = await fetch(`https://api.spotify.com/v1/me/player/next${q.toString() ? `?${q.toString()}` : ''}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${access}` }
+    });
+    if (r.status === 204) return res.json({ ok: true });
+    const text = await r.text();
+    return res.status(r.status).json({ error: text || 'Failed to skip' });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+// Get currently playing information
+app.get('/api/playback/current', async (req, res) => {
+  try {
+    const access = req.session?.tokens?.access_token;
+    if (!access) return res.status(401).json({ error: 'Not authenticated' });
+    const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+      headers: { Authorization: `Bearer ${access}` }
+    });
+    if (r.status === 204) return res.json({ is_playing: false });
+    const text = await r.text();
+    if (!r.ok) return res.status(r.status).send(text || 'Failed to get playback state');
+    res.type('application/json').send(text);
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
 // Logout endpoint
 app.post('/api/logout', (req, res) => {
   const uid = req.session?.user?.id;
@@ -342,7 +509,11 @@ app.post('/api/logout', (req, res) => {
 
 // Public config for the web app
 app.get('/api/config', (_req, res) => {
-  res.json({ allowHostParticipant: ALLOW_HOST_AS_PARTICIPANT });
+  res.json({
+    allowHostParticipant: ALLOW_HOST_AS_PARTICIPANT,
+    playbackMode: HOST_PLAYBACK_MODE,
+    clip: { stopAfterMs: CLIP_STOP_AFTER_MS }
+  });
 });
 
 // Like (save) current track to user's library

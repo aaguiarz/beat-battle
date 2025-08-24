@@ -81,7 +81,7 @@ export async function transferPlaybackToPlayer() {
   });
 }
 
-export async function playTrackId(trackId: string) {
+export async function playTrackId(trackId: string, positionMs: number = 0) {
   const token = await getAccessToken();
   const id = await ensurePlayer();
   
@@ -102,7 +102,7 @@ export async function playTrackId(trackId: string) {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ uris: [uri], position_ms: 0 })
+    body: JSON.stringify({ uris: [uri], position_ms: Math.max(0, Math.floor(positionMs)) })
   });
 }
 
@@ -132,6 +132,16 @@ export async function getThisDevice(): Promise<{ id: string; name: string; is_ac
 export async function togglePlay() {
   await ensurePlayer();
   await player!.togglePlay();
+}
+
+export async function pausePlayback() {
+  await ensurePlayer();
+  try {
+    await player!.pause();
+  } catch (e) {
+    // Fallback: if pause isn't available, try toggle when playing
+    try { await player!.togglePlay(); } catch {}
+  }
 }
 
 export async function setVolume(level: number) {

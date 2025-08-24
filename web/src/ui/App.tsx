@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { playTrackId, transferPlaybackToPlayer } from '../spotify/player';
+import { playTrackId, transferPlaybackToPlayer, pausePlayback } from '../spotify/player';
+import { HostPlaybackControls } from './components/HostPlaybackControls';
+import { transfer as transferConnect, playOnDevice as playOnConnect, pause as pauseConnect } from '../utils/playback';
 import QRCode from 'qrcode';
 import { Landing } from './Landing';
 import { SongCard } from './components/SongCard';
@@ -19,6 +21,8 @@ import { useToast } from '../hooks/useToast';
 
 export function App() {
   const [group, setGroup] = useState('');
+  const [playbackMode, setPlaybackMode] = useState<'connect' | 'websdk'>('connect');
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [qrVisible, setQrVisible] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -27,6 +31,8 @@ export function App() {
   const [lastPoints, setLastPoints] = useState<number | null>(null);
   const [revealError, setRevealError] = useState<string | null>(null);
   const [navError, setNavError] = useState<string | null>(null);
+  const [positionMs, setPositionMs] = useState<number>(0);
+  const [durationMs, setDurationMs] = useState<number>(0);
   const [songPreference, setSongPreference] = useState<{ includeLiked: boolean; includeRecent: boolean; includePlaylist: boolean; playlistId?: string }>({ includeLiked: true, includeRecent: false, includePlaylist: false });
   const [playlists, setPlaylists] = useState<Array<{ id: string; name: string; tracks: { total: number } }> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -34,8 +40,19 @@ export function App() {
   // Use custom hooks
   const { user: me, logout, refreshUser } = useAuth();
   const { members, state, answer, setAnswer, setMembers, startGame, nextTrack: gameNextTrack, prevTrack: gamePrevTrack, revealAnswer } = useGameState(group);
-  const { sdkState, deviceInfo, volume, updateVolume, togglePlayback, activate } = useSpotifyPlayer();
+  const { sdkState, deviceInfo, volume, updateVolume, togglePlayback, activate } = useSpotifyPlayer(playbackMode === 'websdk');
   const { toast, showToast } = useToast();
+  const clipTimer = useRef<any>(null);
+  const clipCfgRef = useRef<{ stopAfterMs: number }>({ stopAfterMs: 0 });
+
+  function scheduleAutoStop() {
+    const ms = clipCfgRef.current.stopAfterMs;
+    if (!ms || ms <= 0) return;
+    if (clipTimer.current) clearTimeout(clipTimer.current);
+    clipTimer.current = setTimeout(async () => {
+      try { await handlePause(); } catch {}
+    }, ms);
+  }
 
   const isHost = useMemo(() => me?.role === 'host', [me]);
   function formatDuration(ms?: number) {
@@ -48,8 +65,16 @@ export function App() {
 
   const handleStartGame = async () => {
     try {
-      await activate();
-      await transferPlaybackToPlayer();
+      // If host selected a Connect device, use it; otherwise use Web SDK
+      if (playbackMode === 'connect' && selectedDeviceId) {
+        try { await transferConnect(selectedDeviceId, true); } catch {}
+      } else if (playbackMode === 'websdk') {
+        await activate();
+        await transferPlaybackToPlayer();
+      } else {
+        setNavError('Select a Connect device in Host Playback');
+        return;
+      }
       setAnswer(null);
       setJudgement({ titleOk: false, artistOk: false, yearOk: false });
       setLastPoints(null);
@@ -64,8 +89,15 @@ export function App() {
 
   const handleNextTrack = async () => {
     try {
-      await activate();
-      await transferPlaybackToPlayer();
+      if (playbackMode === 'connect' && selectedDeviceId) {
+        try { await transferConnect(selectedDeviceId, true); } catch {}
+      } else if (playbackMode === 'websdk') {
+        await activate();
+        await transferPlaybackToPlayer();
+      } else {
+        setNavError('Select a Connect device in Host Playback');
+        return;
+      }
       setAnswer(null);
       setJudgement({ titleOk: false, artistOk: false, yearOk: false });
       setLastPoints(null);
@@ -77,12 +109,30 @@ export function App() {
     }
   };
 
+  const handlePause = async () => {
+    try {
+      if (playbackMode === 'connect' && selectedDeviceId) {
+        await pauseConnect(selectedDeviceId);
+      } else {
+        await pausePlayback();
+      }
+    } catch (error) {
+      setNavError(error instanceof Error ? error.message : 'Failed to pause');
+    }
+  };
+
   const handlePrevTrack = async () => {
     try {
-      await activate();
+      if (playbackMode === 'websdk') {
+        await activate();
+      }
       setNavError(null);
       await gamePrevTrack();
-      await transferPlaybackToPlayer();
+      if (playbackMode === 'connect' && selectedDeviceId) {
+        try { await transferConnect(selectedDeviceId, true); } catch {}
+      } else if (playbackMode === 'websdk') {
+        await transferPlaybackToPlayer();
+      }
     } catch (error) {
       setNavError(error instanceof Error ? error.message : 'Failed to go to previous track');
     }
@@ -97,13 +147,38 @@ export function App() {
     }
   };
 
-  // Auto-play when we receive a new track
+  // Auto-play when we receive a new track (with clean start and optional auto-stop)
   useEffect(() => {
     const id = state?.track?.id as string | undefined;
-    if (id) {
-      playTrackId(id).catch((e) => console.warn('Playback failed', e));
-    }
-  }, [state?.track?.id]);
+    if (!id) return;
+    (async () => {
+      const startMs = 0;
+      if (playbackMode === 'connect' && selectedDeviceId) {
+        try {
+          await transferConnect(selectedDeviceId, true);
+          await playOnConnect({ deviceId: selectedDeviceId, trackId: id, positionMs: startMs });
+          scheduleAutoStop();
+        } catch (e) {
+          console.warn('Connect playback failed', e);
+          setNavError('Failed to control Connect device. Open Spotify on the device and try again.');
+        }
+      } else if (playbackMode === 'websdk') {
+        try {
+          await playTrackId(id, startMs);
+          scheduleAutoStop();
+        } catch (e) {
+          console.warn('Web SDK playback failed', e);
+        }
+      }
+    })();
+  }, [state?.track?.id, playbackMode, selectedDeviceId]);
+
+  // Update playback time display (Web SDK only; no server polling in Connect mode)
+  useEffect(() => {
+    if (playbackMode !== 'websdk') return;
+    setDurationMs(sdkState?.duration ?? state?.track?.duration_ms ?? 0);
+    setPositionMs(sdkState?.position ?? 0);
+  }, [playbackMode, sdkState?.position, sdkState?.duration, state?.track?.duration_ms]);
 
   const fetchPlaylists = async () => {
     try {
@@ -215,6 +290,24 @@ export function App() {
         window.location.href = `/auth/login?state=${stateVal}${hostParam}`;
       }
     }
+  }, []);
+
+  // Fetch server config for playback and clip
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch('/api/config', { credentials: 'include' });
+        if (r.ok) {
+          const cfg = await r.json();
+          if (cfg?.playbackMode === 'websdk' || cfg?.playbackMode === 'connect') {
+            setPlaybackMode(cfg.playbackMode);
+          }
+          if (cfg?.clip) {
+            clipCfgRef.current = { stopAfterMs: Number(cfg.clip.stopAfterMs || 0) };
+          }
+        }
+      } catch {}
+    })();
   }, []);
 
   // Poll lobby members so everyone can see who is in the game
@@ -354,16 +447,29 @@ export function App() {
             </div>
           )}
 
+          {isHost && playbackMode === 'connect' && (
+            <HostPlaybackControls 
+              currentTrackId={state?.track?.id} 
+              selectedDeviceId={selectedDeviceId}
+              onDeviceSelect={setSelectedDeviceId}
+            />
+          )}
+
           {isHost && (
             <HostControls
               user={me}
               group={group}
               onStartGame={handleStartGame}
+              onPause={handlePause}
               onNextTrack={handleNextTrack}
+              index={state?.index}
+              total={state?.total}
+              positionMs={playbackMode === 'websdk' ? positionMs : undefined}
+              durationMs={playbackMode === 'websdk' ? durationMs : undefined}
             />
           )}
 
-          {isHost && (
+          {isHost && playbackMode === 'websdk' && (
             <PlaybackStatus
               deviceInfo={deviceInfo}
               state={state}
@@ -393,7 +499,7 @@ export function App() {
             </div>
           )}
 
-          {isHost && (
+          {isHost && playbackMode === 'websdk' && (
             <MiniPlayer
               sdkState={sdkState}
               state={state}
