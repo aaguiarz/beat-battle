@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { playTrackId, transferPlaybackToPlayer, subscribeToPlayerState, getThisDevice, togglePlay, setVolume, getVolume } from '../spotify/player';
+import { playTrackId, transferPlaybackToPlayer, subscribeToPlayerState, getThisDevice, togglePlay, setVolume, getVolume, activatePlayer } from '../spotify/player';
 import QRCode from 'qrcode';
 import { Landing } from './Landing';
 
@@ -596,7 +596,11 @@ export function App() {
                 <button 
                   disabled={!me || !group.trim()} 
                   onClick={async () => {
-                    try { await transferPlaybackToPlayer(); } catch {}
+                    try { 
+                      // Activate player for mobile autoplay support first
+                      await activatePlayer();
+                      await transferPlaybackToPlayer(); 
+                    } catch {}
                     setAnswer(null);
                     setJudgement({ titleOk: false, artistOk: false, yearOk: false });
                     setLastPoints(null);
@@ -615,7 +619,11 @@ export function App() {
                   className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-blue-500/25" 
                   disabled={!me || !group.trim()} 
                   onClick={async () => {
-                    try { await transferPlaybackToPlayer(); } catch {}
+                    try { 
+                      // Activate player for mobile autoplay support first
+                      await activatePlayer();
+                      await transferPlaybackToPlayer(); 
+                    } catch {}
                     setAnswer(null);
                     setJudgement({ titleOk: false, artistOk: false, yearOk: false });
                     setLastPoints(null);
@@ -847,6 +855,60 @@ export function App() {
           </div>
         </section>
       )}
+
+          {/* Mini player bar */}
+          {isHost && (
+            <div className="fixed left-0 right-0 bottom-0 bg-slate-900 text-white px-3 py-2 flex items-center gap-3 border-t border-slate-700 shadow-2xl">
+              <button 
+                onClick={async () => {
+                  try { await activatePlayer(); } catch {}
+                  fetchPlayablePrev().then(() => transferPlaybackToPlayer()).catch(() => {});
+                }} 
+                className="bg-slate-800 hover:bg-slate-700 text-white border-0 px-2.5 py-1.5 rounded transition-colors"
+              >
+                ⏮
+              </button>
+              <button 
+                onClick={async () => {
+                  try { await activatePlayer(); } catch {}
+                  togglePlay();
+                }} 
+                className="bg-green-500 hover:bg-green-400 text-black border-0 px-2.5 py-1.5 rounded transition-colors font-medium"
+              >
+                {sdkState?.paused ? 'Play' : 'Pause'}
+              </button>
+              <button 
+                onClick={async () => {
+                  try { await activatePlayer(); } catch {}
+                  fetchPlayableNext().then(() => transferPlaybackToPlayer()).catch(() => {});
+                }} 
+                className="bg-slate-800 hover:bg-slate-700 text-white border-0 px-2.5 py-1.5 rounded transition-colors"
+              >
+                ⏭
+              </button>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs opacity-80">Vol</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={volume}
+                  onChange={async (e) => {
+                    const v = Number(e.target.value);
+                    setVol(v);
+                    await setVolume(v / 100);
+                  }}
+                  className="w-20"
+                />
+              </div>
+              <div className="overflow-hidden text-ellipsis whitespace-nowrap flex-1">
+                <span className="text-sm">{sdkState ? 'Now Playing' : 'Ready'}</span>
+              </div>
+              <div className="tabular-nums text-sm">
+                {formatDuration(sdkState?.position || 0)} / {formatDuration(sdkState?.duration || state?.track?.duration_ms)}
+              </div>
+            </div>
+          )}
 
         </div>
       </div>

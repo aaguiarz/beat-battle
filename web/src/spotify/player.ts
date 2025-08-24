@@ -45,9 +45,32 @@ export async function ensurePlayer(): Promise<string> {
   return deviceId;
 }
 
+// Activate element for mobile autoplay support
+export async function activatePlayer() {
+  await ensurePlayer();
+  if (player && player.activateElement) {
+    try {
+      await player.activateElement();
+      console.log('Player activated for mobile autoplay support');
+    } catch (error) {
+      console.warn('Failed to activate player element:', error);
+    }
+  }
+}
+
 export async function transferPlaybackToPlayer() {
   const token = await getAccessToken();
   const id = await ensurePlayer();
+  
+  // Activate element for mobile autoplay support before transfer
+  if (player && player.activateElement) {
+    try {
+      await player.activateElement();
+    } catch (error) {
+      console.warn('Failed to activate player element before transfer:', error);
+    }
+  }
+  
   await fetch('https://api.spotify.com/v1/me/player', {
     method: 'PUT',
     headers: {
@@ -61,6 +84,16 @@ export async function transferPlaybackToPlayer() {
 export async function playTrackId(trackId: string) {
   const token = await getAccessToken();
   const id = await ensurePlayer();
+  
+  // Activate element for mobile autoplay support before playing
+  if (player && player.activateElement) {
+    try {
+      await player.activateElement();
+    } catch (error) {
+      console.warn('Failed to activate player element before play:', error);
+    }
+  }
+  
   const uri = `spotify:track:${trackId}`;
   // Ensure playback is on our player, then start
   await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(id)}`, {
