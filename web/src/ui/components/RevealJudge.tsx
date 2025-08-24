@@ -88,6 +88,7 @@ export function RevealJudge({
           </div>
         )}
 
+        {/* Hidden for now - judging checkboxes section
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-green-500/50 cursor-pointer transition-colors">
             <input
@@ -137,6 +138,7 @@ export function RevealJudge({
             </span>
           </label>
         </div>
+        */}
       </div>
       {revealError && (
         <div className="mt-4 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400">
@@ -146,6 +148,7 @@ export function RevealJudge({
           </div>
         </div>
       )}
+      {/* Hidden for now - points awarded section
       {lastPoints !== null && (
         <div className="mt-4 bg-green-500/10 border border-green-500/30 rounded-lg p-3 text-center">
           <div className="text-green-400 font-semibold flex items-center justify-center gap-2">
@@ -154,6 +157,7 @@ export function RevealJudge({
           </div>
         </div>
       )}
+      */}
     </div>
   );
 }

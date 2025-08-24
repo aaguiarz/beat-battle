@@ -556,7 +556,6 @@ export function App() {
             />
           )}
 
-
           {isHost && hostHasJoined && (
             <RevealJudge
               user={me}
