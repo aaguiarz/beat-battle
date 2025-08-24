@@ -1,43 +1,38 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { playTrackId, transferPlaybackToPlayer, subscribeToPlayerState, getThisDevice, togglePlay, setVolume, getVolume, activatePlayer } from '../spotify/player';
+import { playTrackId, transferPlaybackToPlayer } from '../spotify/player';
 import QRCode from 'qrcode';
 import { Landing } from './Landing';
+import { Card } from './components/Card';
+import { GradientButton } from './components/GradientButton';
+import { SongCard } from './components/SongCard';
+import { UserSection } from './components/UserSection';
+import { MusicPreferencesForm } from './components/MusicPreferencesForm';
+import { useAuth } from '../hooks/useAuth';
+import { useGameState } from '../hooks/useGameState';
+import { useSpotifyPlayer } from '../hooks/useSpotifyPlayer';
+import { useToast } from '../hooks/useToast';
 
 export function App() {
   const [group, setGroup] = useState('');
-  const [me, setMe] = useState<{ id: string; name: string; role?: 'host' | 'player' } | null>(null);
-  const [members, setMembers] = useState<Array<{ id: string; role: 'host' | 'player'; name: string; avatar?: string }> | null>(null);
-  const [state, setState] = useState<any>(null);
-  const [answer, setAnswer] = useState<null | {
-    title: string;
-    artist: string;
-    year: number;
-    attribution?: {
-      sources: Array<{
-        userId: string;
-        userName: string;
-        sourceType: 'liked' | 'recent' | 'playlist' | 'top_tracks';
-        sourceDetail?: string;
-      }>;
-    };
-  }>(null);
-  const [judgement, setJudgement] = useState({ titleOk: false, artistOk: false, yearOk: false });
-  const [lastPoints, setLastPoints] = useState<number | null>(null);
-  const [revealError, setRevealError] = useState<string | null>(null);
-  const [navError, setNavError] = useState<string | null>(null);
-  const [deviceInfo, setDeviceInfo] = useState<{ name: string; is_active: boolean } | null>(null);
-  const [sdkState, setSdkState] = useState<any>(null);
-  const [volume, setVol] = useState<number>(80);
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [qrVisible, setQrVisible] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string>('');
-  const [toast, setToast] = useState<string | null>(null);
-  const [likeBusy, setLikeBusy] = useState(false);
+  const [judgement, setJudgement] = useState({ titleOk: false, artistOk: false, yearOk: false });
+  const [lastPoints, setLastPoints] = useState<number | null>(null);
+  const [revealError, setRevealError] = useState<string | null>(null);
+  const [navError, setNavError] = useState<string | null>(null);
   const [songPreference, setSongPreference] = useState<{ includeLiked: boolean; includeRecent: boolean; includePlaylist: boolean; playlistId?: string }>({ includeLiked: true, includeRecent: false, includePlaylist: false });
   const [playlists, setPlaylists] = useState<Array<{ id: string; name: string; tracks: { total: number } }> | null>(null);
-  const isHost = React.useMemo(() => me?.role === 'host', [me]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Use custom hooks
+  const { user: me, logout, refreshUser } = useAuth();
+  const { members, state, answer, setAnswer, setMembers, startGame, nextTrack: gameNextTrack, prevTrack: gamePrevTrack, revealAnswer } = useGameState(group);
+  const { sdkState, deviceInfo, volume, updateVolume, togglePlayback, activate } = useSpotifyPlayer();
+  const { toast, showToast } = useToast();
+  
+  const isHost = useMemo(() => me?.role === 'host', [me]);
   function formatDuration(ms?: number) {
     if (!ms && ms !== 0) return '—';
     const totalSec = Math.round(ms / 1000);
@@ -45,66 +40,77 @@ export function App() {
     const s = totalSec % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
   }
-  async function fetchPlayableStart() {
-    const seed = Date.now();
-    setNavError(null);
-    const r = await fetch(`/api/game/${encodeURIComponent(group)}/start?seed=${seed}`, { method: 'POST', credentials: 'include' });
-    if (!r.ok) {
-      setNavError(await r.text());
-      return;
-    }
-    const data = await r.json();
-    setState(data);
-  }
-  async function fetchPlayableNext() {
-    setNavError(null);
-    const rn = await fetch(`/api/game/${encodeURIComponent(group)}/next`, { method: 'POST', credentials: 'include' });
-    if (!rn.ok) {
-      setNavError(await rn.text());
-      return;
-    }
-    const data = await rn.json();
-    setState(data);
-  }
-  async function fetchPlayablePrev() {
-    setNavError(null);
-    const rp = await fetch(`/api/game/${encodeURIComponent(group)}/prev`, { method: 'POST', credentials: 'include' });
-    if (!rp.ok) {
-      setNavError(await rp.text());
-      return;
-    }
-    const data = await rp.json();
-    setState(data);
-  }
 
-  // Auto-play when we receive a new preview URL (user gesture: button click triggers fetch)
+  const handleStartGame = async () => {
+    try {
+      await activate();
+      await transferPlaybackToPlayer();
+      setAnswer(null);
+      setJudgement({ titleOk: false, artistOk: false, yearOk: false });
+      setLastPoints(null);
+      setRevealError(null);
+      setNavError(null);
+      await startGame();
+      refreshUser();
+    } catch (error) {
+      setNavError(error instanceof Error ? error.message : 'Failed to start game');
+    }
+  };
+
+  const handleNextTrack = async () => {
+    try {
+      await activate();
+      await transferPlaybackToPlayer();
+      setAnswer(null);
+      setJudgement({ titleOk: false, artistOk: false, yearOk: false });
+      setLastPoints(null);
+      setRevealError(null);
+      setNavError(null);
+      await gameNextTrack();
+    } catch (error) {
+      setNavError(error instanceof Error ? error.message : 'Failed to go to next track');
+    }
+  };
+
+  const handlePrevTrack = async () => {
+    try {
+      await activate();
+      setNavError(null);
+      await gamePrevTrack();
+      await transferPlaybackToPlayer();
+    } catch (error) {
+      setNavError(error instanceof Error ? error.message : 'Failed to go to previous track');
+    }
+  };
+
+  const handleReveal = async () => {
+    try {
+      setRevealError(null);
+      await revealAnswer();
+    } catch (error) {
+      setRevealError(error instanceof Error ? error.message : 'Failed to reveal answer');
+    }
+  };
+
+  // Auto-play when we receive a new track
   useEffect(() => {
     const id = state?.track?.id as string | undefined;
     if (id) {
-      // Trigger full-track playback via Spotify SDK
       playTrackId(id).catch((e) => console.warn('Playback failed', e));
     }
   }, [state?.track?.id]);
 
-  // Subscribe to SDK state and poll device info
-  useEffect(() => {
-    const unsub = subscribeToPlayerState((s) => setSdkState(s));
-    let t: any;
-    async function poll() {
-      try {
-        const info = await getThisDevice();
-        if (info) setDeviceInfo({ name: info.name, is_active: info.is_active });
-      } catch {}
-      t = setTimeout(poll, 5000);
+  const fetchPlaylists = async () => {
+    try {
+      const response = await fetch('/api/playlists', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setPlaylists(data.playlists || []);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch playlists:', error);
     }
-    poll();
-    // Initialize volume
-    getVolume().then((v) => setVol(Math.round(v * 100))).catch(() => {});
-    return () => {
-      unsub();
-      if (t) clearTimeout(t);
-    };
-  }, []);
+  };
 
   // Auto-fetch playlists when user is authenticated
   useEffect(() => {
@@ -132,6 +138,7 @@ export function App() {
     const created = url.searchParams.get('created') === '1';
     const connect = url.searchParams.get('connect') === '1';
     const error = url.searchParams.get('error');
+    
 
     if (error) {
       if (error === 'create_failed') {
@@ -144,17 +151,17 @@ export function App() {
     if (groupParam) {
       setGroup(groupParam);
       if (created) {
-        setToast('Game created successfully! Select your music preferences.');
-        setTimeout(() => setToast(null), 3000);
+        showToast('Game created successfully! Select your music preferences.', 3000);
       }
     }
 
     async function checkMe() {
       try {
+        refreshUser();
+        // Also check if user has a group we should navigate to
         const r = await fetch('/api/me', { credentials: 'include' });
         if (r.ok) {
           const data = await r.json();
-          setMe(data);
           if (!group && data.group) {
             setGroup(data.group);
             // Navigate to /game if we have a group but we're not already there
@@ -243,19 +250,6 @@ export function App() {
     return () => iv && clearInterval(iv);
   }, [group]);
 
-  async function fetchPlaylists() {
-    try {
-      const r = await fetch('/api/playlists', { credentials: 'include' });
-      if (r.ok) {
-        const data = await r.json();
-        setPlaylists(data.playlists || []);
-      }
-    } catch (e) {
-      console.warn('Failed to fetch playlists:', e);
-    }
-  }
-
-
   const loginUrl = useMemo(() => {
     const state = group ? `group:${encodeURIComponent(group)}` : 'mm';
     // Check if user would be a host (first in group or current host)
@@ -291,58 +285,25 @@ export function App() {
               </h1>
             </div>
 
-            {/* User Info - Top Right on desktop, below title on mobile */}
+            {/* User Info */}
             {me && (
-              <div className="flex items-center justify-center lg:justify-end gap-3 order-2 lg:order-2">
-                <div className="text-center lg:text-right">
-                  <div className="text-green-400 text-sm font-medium flex items-center justify-center lg:justify-end gap-2">
-                    Connected as <strong className="text-white">{me.name}</strong>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${me.role === 'host' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
-                      {me.role === 'host' ? '👑 Host' : '🎮 Player'}
-                    </span>
-                  </div>
-                  <div className="text-slate-400 text-xs">({me.id})</div>
-                </div>
-                <button
-                  className="bg-red-600 hover:bg-red-500 text-white font-medium py-1.5 px-3 rounded-lg transition-colors text-sm"
-                  onClick={async () => {
-                    try {
-                      await fetch('/api/logout', {
-                        method: 'POST',
-                        credentials: 'include'
-                      });
-
-                      setMe(null);
-                      setMembers(null);
-                      setGroup('');
-                      setPlaylists(null);
-                      setSongPreference({ includeLiked: true, includeRecent: false, includePlaylist: false });
-
-                      window.history.pushState({}, '', '/');
-                      setCurrentPath('/');
-
-                    } catch (e) {
-                      console.error('Logout failed:', e);
-                      setMe(null);
-                      setMembers(null);
-                      setGroup('');
-                      window.history.pushState({}, '', '/');
-                      setCurrentPath('/');
-                    }
-                  }}
-                >
-                  🚪 Logout
-                </button>
+              <div className="order-2 lg:order-2">
+                <UserSection 
+                  user={me} 
+                  onLogout={async () => {
+                    await logout();
+                    setGroup('');
+                    setPlaylists(null);
+                    setSongPreference({ includeLiked: true, includeRecent: false, includePlaylist: false });
+                    window.history.pushState({}, '', '/');
+                    setCurrentPath('/');
+                  }} 
+                />
               </div>
             )}
           </div>
           {/* Sharing Section */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <span className="text-2xl mr-2">🔗</span>
-              Share Game
-            </h3>
-
+          <Card title="Share Game" icon="🔗" className="mb-6">
             <div className="flex items-end gap-3 flex-wrap">
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Game Code</label>
@@ -350,34 +311,36 @@ export function App() {
                   {group}
                 </code>
               </div>
-              <button
-                title="Copy group code"
-                className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium h-fit"
+              <GradientButton
+                variant="blue"
+                size="sm"
+                icon="📋"
                 onClick={async () => {
                   await navigator.clipboard.writeText(group);
-                  setToast('Game code copied');
-                  setTimeout(() => setToast(null), 2000);
+                  showToast('Game code copied');
                 }}
               >
-                📋 Copy
-              </button>
-              <button
-                className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium h-fit"
+                Copy
+              </GradientButton>
+              <GradientButton
+                variant="purple"
+                size="sm"
+                icon={qrVisible ? '🙈' : '📱'}
                 onClick={() => setQrVisible((v) => !v)}
               >
-                {qrVisible ? '🙈 Hide QR' : '📱 Show QR'}
-              </button>
-              <button
-                title="Copy invitation link"
-                className="bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium h-fit"
+                {qrVisible ? 'Hide QR' : 'Show QR'}
+              </GradientButton>
+              <GradientButton
+                variant="green"
+                size="sm"
+                icon="🔗"
                 onClick={async () => {
                   await navigator.clipboard.writeText(shareLink);
-                  setToast('Invitation link copied');
-                  setTimeout(() => setToast(null), 2000);
+                  showToast('Invitation link copied');
                 }}
               >
-                🔗 Copy Invitation Link
-              </button>
+                Copy Invitation Link
+              </GradientButton>
             </div>
             {qrVisible && (
               <div className="mt-6 flex flex-col items-center">
@@ -397,7 +360,7 @@ export function App() {
                 )}
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Login Section - Only show if not authenticated */}
           {!me && (
@@ -424,120 +387,32 @@ export function App() {
 
 
           {me && !members?.some(m => m.id === me.id || m.id === `${me.id}#participant`) && (
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                <span className="text-2xl mr-2">🎵</span>
-                Choose Your Music Sources
-              </h3>
-              <p className="text-slate-300 text-sm mb-6">
-                Select your music sources for the game. Your songs will be combined with other players' choices.
-              </p>
-
-              <div className="space-y-4">
-                <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-green-500/50 cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={songPreference.includeLiked}
-                    onChange={(e) => setSongPreference({ ...songPreference, includeLiked: e.target.checked })}
-                    className="w-4 h-4 text-green-500 bg-slate-700 border-slate-500 rounded focus:ring-green-500 focus:ring-2"
-                  />
-                  <span className="text-white flex items-center gap-2">
-                    <span className="text-lg">❤️</span>
-                    My liked songs
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-blue-500/50 cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={songPreference.includeRecent}
-                    onChange={(e) => setSongPreference({ ...songPreference, includeRecent: e.target.checked })}
-                    className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-500 rounded focus:ring-blue-500 focus:ring-2"
-                  />
-                  <span className="text-white flex items-center gap-2">
-                    <span className="text-lg">🕒</span>
-                    My recently played tracks
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-600 hover:border-purple-500/50 cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={songPreference.includePlaylist}
-                    onChange={(e) => setSongPreference({
-                      ...songPreference,
-                      includePlaylist: e.target.checked,
-                      playlistId: e.target.checked ? (playlists?.[0]?.id || songPreference.playlistId) : undefined
-                    })}
-                    className="w-4 h-4 text-purple-500 bg-slate-700 border-slate-500 rounded focus:ring-purple-500 focus:ring-2"
-                  />
-                  <span className="text-white flex items-center gap-2">
-                    <span className="text-lg">📝</span>
-                    A specific playlist
-                  </span>
-                </label>
-
-                {songPreference.includePlaylist && playlists && (
-                  <div className="ml-8 mt-2">
-                    <select
-                      value={songPreference.playlistId || ''}
-                      onChange={(e) => setSongPreference({ ...songPreference, playlistId: e.target.value })}
-                      className="w-full bg-slate-900/70 border border-slate-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-                    >
-                      {playlists.map(playlist => (
-                        <option key={playlist.id} value={playlist.id} className="bg-slate-800">
-                          {playlist.name} ({playlist.tracks.total} tracks)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {!playlists && songPreference.includePlaylist && (
-                  <div className="ml-8 mt-2 text-slate-400 text-sm flex items-center gap-2">
-                    <div className="animate-spin w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full"></div>
-                    Loading playlists...
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-6 text-center">
-                <button
-                  onClick={async () => {
-                    try {
-                      const r = await fetch('/api/lobby/join', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ group, preference: songPreference }),
-                        credentials: 'include'
-                      });
-                      const data = await r.json();
-                      if (r.ok) {
-                        setMembers(data.members || null);
-                        setToast('Successfully joined the game!');
-                        setTimeout(() => setToast(null), 2000);
-                        try {
-                          const rm = await fetch('/api/me', { credentials: 'include' });
-                          if (rm.ok) setMe(await rm.json());
-                        } catch {}
-                      } else {
-                        alert(`Failed to join game: ${data.error || 'Unknown error'}`);
-                      }
-                    } catch (e) {
-                      console.error('Failed to join lobby:', e);
-                      alert('Failed to join game. Please try again.');
-                    }
-                  }}
-                  disabled={
-                    (!songPreference.includeLiked && !songPreference.includeRecent && !songPreference.includePlaylist) ||
-                    (songPreference.includePlaylist && !songPreference.playlistId)
+            <MusicPreferencesForm
+              preference={songPreference}
+              onPreferenceChange={setSongPreference}
+              playlists={playlists}
+              onJoin={async () => {
+                try {
+                  const response = await fetch('/api/lobby/join', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ group, preference: songPreference }),
+                    credentials: 'include'
+                  });
+                  const data = await response.json();
+                  if (response.ok) {
+                    setMembers(data.members || null);
+                    showToast('Successfully joined the game!');
+                    refreshUser();
+                  } else {
+                    alert(`Failed to join game: ${data.error || 'Unknown error'}`);
                   }
-                  className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-green-500/25"
-                >
-                  🎮 Join Game
-                </button>
-              </div>
-            </div>
+                } catch (error) {
+                  console.error('Failed to join lobby:', error);
+                  alert('Failed to join game. Please try again.');
+                }
+              }}
+            />
           )}
 
           {members && (
@@ -587,54 +462,25 @@ export function App() {
           )}
 
           {isHost && (
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                <span className="text-2xl mr-2">🎮</span>
-                Host Controls
-              </h3>
+            <Card title="Host Controls" icon="🎮" className="mb-6">
               <div className="flex gap-3 flex-wrap">
-                <button
+                <GradientButton
+                  icon="🚀"
                   disabled={!me || !group.trim()}
-                  onClick={async () => {
-                    try {
-                      // Activate player for mobile autoplay support first
-                      await activatePlayer();
-                      await transferPlaybackToPlayer();
-                    } catch {}
-                    setAnswer(null);
-                    setJudgement({ titleOk: false, artistOk: false, yearOk: false });
-                    setLastPoints(null);
-                    setRevealError(null);
-                    await fetchPlayableStart();
-                    try {
-                      const rm = await fetch('/api/me', { credentials: 'include' });
-                      if (rm.ok) setMe(await rm.json());
-                    } catch {}
-                  }}
-                  className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-green-500/25"
+                  onClick={handleStartGame}
                 >
-                  🚀 Start Game
-                </button>
-                <button
-                  className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-blue-500/25"
+                  Start Game
+                </GradientButton>
+                <GradientButton
+                  variant="blue"
+                  icon="⏭️"
                   disabled={!me || !group.trim()}
-                  onClick={async () => {
-                    try {
-                      // Activate player for mobile autoplay support first
-                      await activatePlayer();
-                      await transferPlaybackToPlayer();
-                    } catch {}
-                    setAnswer(null);
-                    setJudgement({ titleOk: false, artistOk: false, yearOk: false });
-                    setLastPoints(null);
-                    setRevealError(null);
-                    await fetchPlayableNext();
-                  }}
+                  onClick={handleNextTrack}
                 >
-                  ⏭️ Next Track
-                </button>
+                  Next Track
+                </GradientButton>
               </div>
-            </div>
+            </Card>
           )}
 
           {isHost && (
@@ -679,27 +525,15 @@ export function App() {
 
               <div className="space-y-4">
                 <div className="flex justify-center">
-                  <button
+                  <GradientButton
+                    variant="purple"
+                    size="lg"
+                    icon="🔍"
                     disabled={!me || !group.trim() || !state?.track?.id}
-                    onClick={async () => {
-                      setRevealError(null);
-                      try {
-                        const r = await fetch(`/api/game/${encodeURIComponent(group)}/reveal`, { credentials: 'include' });
-                        if (!r.ok) {
-                          const t = await r.text();
-                          setRevealError(t);
-                          return;
-                        }
-                        const data = await r.json();
-                        if (data?.answer) setAnswer(data.answer);
-                      } catch (e) {
-                        setRevealError((e as Error).message);
-                      }
-                    }}
-                    className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-purple-500/25"
+                    onClick={handleReveal}
                   >
-                    🔍 Reveal Answer
-                  </button>
+                    Reveal Answer
+                  </GradientButton>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -752,48 +586,11 @@ export function App() {
                   </label>
                 </div>
               </div>
-              {answer && (
-                <div className="mt-6 flex items-center gap-4 p-4 border border-slate-600 rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-xl">
-            <img
-              src={state?.track?.album?.images?.[0]?.url || state?.track?.album?.images?.[1]?.url}
-              alt={answer.title}
-              className="w-24 h-24 object-cover rounded"
-            />
-            <div className="flex flex-col">
-              <div className="font-bold text-base">{answer.title}</div>
-              <div className="opacity-85 mt-0.5">{answer.artist}</div>
-              <div className="opacity-70 mt-0.5">Album: {state?.track?.album?.name || '—'}</div>
-              <div className="opacity-70 mt-0.5">Year: {answer.year} · Duration: {formatDuration(state?.track?.duration_ms)}</div>
-
-              {answer.attribution && (
-                <div className="mt-2 p-2 bg-white/10 rounded">
-                  <div className="text-xs font-semibold mb-1 text-green-500">Song Sources:</div>
-                  {answer.attribution.sources.map((source, idx) => (
-                    <div key={idx} className="text-xs opacity-90 mb-0.5">
-                      <strong>{source.userName}</strong> - {
-                        source.sourceType === 'liked' ? 'Liked Songs' :
-                        source.sourceType === 'recent' ? 'Recently Played' :
-                        source.sourceType === 'playlist' ? (source.sourceDetail || 'Playlist') :
-                        'Top Tracks'
-                      }
-                    </div>
-                  ))}
+              {answer && state?.track && (
+                <div className="mt-6">
+                  <SongCard track={state.track} answer={answer} />
                 </div>
               )}
-
-              {state?.track?.id && (
-                <a
-                  href={`https://open.spotify.com/track/${state.track.id}`}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="mt-2 text-green-500 no-underline font-semibold"
-                >
-                  Open in Spotify
-                </a>
-              )}
-            </div>
-          </div>
-        )}
               {revealError && (
                 <div className="mt-4 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400">
                   <div className="flex items-center gap-2">
@@ -813,48 +610,11 @@ export function App() {
             </div>
           )}
 
-      {!isHost && answer && (
-        <section className="mt-6">
-          <div className="flex items-center gap-4 p-3 border border-gray-300 rounded-lg bg-black text-white">
-            <img
-              src={state?.track?.album?.images?.[0]?.url || state?.track?.album?.images?.[1]?.url}
-              alt={answer.title}
-              className="w-24 h-24 object-cover rounded"
-            />
-            <div className="flex flex-col">
-              <div className="font-bold text-base">{answer.title}</div>
-              <div className="opacity-85 mt-0.5">{answer.artist}</div>
-              <div className="opacity-70 mt-0.5">Album: {state?.track?.album?.name || '—'}</div>
-              <div className="opacity-70 mt-0.5">Year: {answer.year} · Duration: {formatDuration(state?.track?.duration_ms)}</div>
-              {answer.attribution && (
-                <div className="mt-2 p-2 bg-white/10 rounded">
-                  <div className="text-xs font-semibold mb-1 text-green-500">Song Sources:</div>
-                  {answer.attribution.sources.map((source, idx) => (
-                    <div key={idx} className="text-xs opacity-90 mb-0.5">
-                      <strong>{source.userName}</strong> - {
-                        source.sourceType === 'liked' ? 'Liked Songs' :
-                        source.sourceType === 'recent' ? 'Recently Played' :
-                        source.sourceType === 'playlist' ? (source.sourceDetail || 'Playlist') :
-                        'Top Tracks'
-                      }
-                    </div>
-                  ))}
-                </div>
-              )}
-              {state?.track?.id && (
-                <a
-                  href={`https://open.spotify.com/track/${state.track.id}`}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="mt-2 text-green-500 no-underline font-semibold"
-                >
-                  Open in Spotify
-                </a>
-              )}
+          {!isHost && answer && state?.track && (
+            <div className="mt-6">
+              <SongCard track={state.track} answer={answer} />
             </div>
-          </div>
-        </section>
-      )}
+          )}
 
           {/* Mini player bar */}
           {isHost && (
