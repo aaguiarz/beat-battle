@@ -86,3 +86,6 @@ export async function getPlaylistTracks(opts: { accessToken: string; playlistId:
   url.searchParams.set('offset', String(offset));
   return fetchSpotify<{ items: { added_at: string; track: SimpleTrack | null }[]; total: number }>(url.toString(), { accessToken });
 }
+
+// Audio analysis for clean clip boundaries
+// Audio analysis helpers removed: we start at 0ms by configuration

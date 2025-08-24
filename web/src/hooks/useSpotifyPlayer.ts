@@ -13,7 +13,7 @@ interface DeviceInfo {
   is_active: boolean;
 }
 
-export function useSpotifyPlayer() {
+export function useSpotifyPlayer(enabled: boolean = true) {
   const [sdkState, setSdkState] = useState<any>(null);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
   const [volume, setVolume] = useState<number>(80);
@@ -46,6 +46,7 @@ export function useSpotifyPlayer() {
   };
 
   useEffect(() => {
+    if (!enabled) return;
     // Subscribe to player state changes
     const unsubscribe = subscribeToPlayerState((state) => {
       setSdkState(state);
@@ -82,7 +83,7 @@ export function useSpotifyPlayer() {
       unsubscribe();
       clearInterval(devicePollingInterval);
     };
-  }, []);
+  }, [enabled]);
 
   return {
     sdkState,
