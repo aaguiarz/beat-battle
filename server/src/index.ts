@@ -44,7 +44,7 @@ app.get('/api/version', (_req, res) => {
 app.get('/auth/login', (req, res) => {
   const state = req.query.state?.toString() || 'mm';
   const isHost = req.query.host === 'true';
-  
+
   // Base scopes for all users (no Premium required)
   const baseScopes = [
     'user-top-read',
@@ -55,7 +55,7 @@ app.get('/auth/login', (req, res) => {
     'playlist-read-private',
     'playlist-read-collaborative'
   ];
-  
+
   // Premium-only scopes for hosts
   const hostScopes = [
     'streaming',
@@ -63,9 +63,9 @@ app.get('/auth/login', (req, res) => {
     'user-read-playback-state',
     'user-read-currently-playing'
   ];
-  
+
   const scopes = isHost ? [...baseScopes, ...hostScopes] : baseScopes;
-  
+
   const url = buildSpotifyAuthUrl({
     clientId: process.env.SPOTIFY_CLIENT_ID || '',
     redirectUri: process.env.SPOTIFY_REDIRECT_URI || `${BASE_URL}/auth/callback`,
@@ -93,11 +93,11 @@ app.get('/auth/callback', async (req, res) => {
     }
     const avatar = me.images?.[0]?.url;
     store.saveUser(me.id, me.display_name || me.id, tokens, avatar);
-    
-    // Handle different authentication intents  
+
+    // Handle different authentication intents
     let redirectUrl = WEB_URL.replace(/\/$/, '');
     let group: string | undefined;
-    
+
     if (typeof state === 'string') {
       if (state === 'create') {
         // User wants to create a new game - do it automatically
@@ -105,15 +105,15 @@ app.get('/auth/callback', async (req, res) => {
           const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
           let newGroup = '';
           for (let i = 0; i < 12; i++) newGroup += chars[Math.floor(Math.random() * chars.length)];
-          
+
           lobby.setHost(newGroup, me.id);
           console.log(`[OAuth Create] Auto-created game ${newGroup} for user ${me.id}`);
-          
+
           if (req.session) {
             req.session.group = newGroup;
             req.session.memberId = me.id;
           }
-          
+
           redirectUrl += `/game?authed=1&group=${newGroup}&created=1`;
         } catch (e) {
           console.error('[OAuth Create] Failed to auto-create game:', e);
@@ -144,7 +144,7 @@ app.get('/auth/callback', async (req, res) => {
     } else {
       redirectUrl += '?authed=1';
     }
-    
+
     res.redirect(redirectUrl);
   } catch (e) {
     res.status(400).send((e as Error).message);
@@ -205,12 +205,12 @@ app.post('/api/logout', (req, res) => {
     // Note: We're not removing from store to avoid breaking ongoing games
     // Just clearing the session
   }
-  
+
   // Clear the session
   if (req.session) {
     req.session = null;
   }
-  
+
   res.json({ ok: true, message: 'Logged out successfully' });
 });
 
@@ -235,23 +235,23 @@ app.get('/api/playlists', async (req, res) => {
 app.post('/api/game/create', (req, res) => {
   const uid = req.session?.user?.id;
   if (!uid) return res.status(401).json({ error: 'Not authenticated' });
-  
+
   // Generate a new group code
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let group = '';
   for (let i = 0; i < 12; i++) group += chars[Math.floor(Math.random() * chars.length)];
-  
+
   // Set the creator as the host immediately, but don't join them to the lobby yet
   // They need to select their music preferences first
   lobby.setHost(group, uid);
-  
+
   if (req.session) {
     req.session.group = group;
     req.session.memberId = uid;
   }
-  
+
   console.log(`[Game Create] User ${uid} created and became host of group ${group} (needs to select preferences)`);
-  
+
   // Return empty members list since the host hasn't joined the lobby yet
   res.json({ ok: true, group, members: [] });
 });
@@ -260,7 +260,7 @@ app.post('/api/game/create', (req, res) => {
 app.post('/api/lobby/join', (req, res) => {
   const uid = req.session?.user?.id;
   if (!uid) return res.status(401).json({ error: 'Not authenticated' });
-  
+
   // Check if user has tokens stored (required for aggregation)
   const tokens = store.getTokens(uid);
   if (!tokens) {
@@ -291,7 +291,7 @@ app.post('/api/lobby/join', (req, res) => {
   }
 
   // Store user song preference if provided
-  if (preference && (preference.includeLiked || preference.includeRecent || 
+  if (preference && (preference.includeLiked || preference.includeRecent ||
       (preference.includePlaylist && preference.playlistId))) {
     console.log(`[Join Debug] Storing preference for user ${uid} in group ${group}:`, preference);
     lobby.setUserPreference(group, uid, preference);
@@ -337,7 +337,6 @@ app.get('/api/lobby/:group', (req, res) => {
     if (a.role !== b.role) return a.role === 'host' ? -1 : 1;
     return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
   });
-  console.log(`[Lobby Debug] Group ${group} - Host: ${host}, Members:`, detailed.map(m => `${m.id}(${m.role})`).join(', '));
   res.json({ group, members: detailed, host });
 });
 
@@ -352,17 +351,17 @@ app.post('/api/game/:group/start', async (req, res) => {
     // Ensure the requester is part of the lobby and verify they are the host
     const currentHost = lobby.getHost(group);
     const members = lobby.members(group);
-    
+
     if (!currentHost) {
       // If there's no host, this shouldn't happen during game start - return error
       return res.status(400).json({ error: 'No host found for this group. Someone needs to create the game first.' });
     }
-    
+
     // Verify that the requester is the host
     if (currentHost !== uid) {
       return res.status(403).json({ error: 'Only the host can start the game.' });
     }
-    
+
     // Make sure the host is in the members list
     if (!members.includes(uid) && !members.includes(`${uid}#participant`)) {
       lobby.join(group, uid);

@@ -221,6 +221,24 @@ export function App() {
     return () => iv && clearInterval(iv);
   }, [group]);
 
+  // Poll game state so players can see contributions even without host controls
+  useEffect(() => {
+    if (!group) return;
+    let iv: any;
+    const fetchState = async () => {
+      try {
+        const r = await fetch(`/api/game/${encodeURIComponent(group)}/state`, { credentials: 'include' });
+        if (r.ok) {
+          const data = await r.json();
+          setState((prev: any) => ({ ...prev, ...data }));
+        }
+      } catch {}
+    };
+    fetchState();
+    iv = setInterval(fetchState, 5000);
+    return () => iv && clearInterval(iv);
+  }, [group]);
+
   async function fetchPlaylists() {
     try {
       const r = await fetch('/api/playlists', { credentials: 'include' });
@@ -475,6 +493,11 @@ export function App() {
                 }}>
                   {m.role === 'host' ? 'Host' : 'Player'}
                 </span>
+                {state?.contrib && (
+                  <span title="Songs from this player" style={{ marginLeft: 4, fontSize: 12, opacity: 0.8 }}>
+                    {state.contrib[m.id.split('#')[0]] ?? 0}
+                  </span>
+                )}
               </div>
             ))}
           </div>

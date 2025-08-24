@@ -45,7 +45,8 @@ export async function startGame(opts: { group: string; accessToken: string; seed
   const got = await getIndexAndTrack(accessToken, game.trackIds, game.current);
   game.current = got.idx;
   const t = got.track;
-  return { track: t ? { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } : undefined, index: game.current, total: game.trackIds.length };
+  const contrib = computeContrib(game);
+  return { track: t ? { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } : undefined, index: game.current, total: game.trackIds.length, contrib } as any;
 }
 
 export async function getState(opts: { group: string; accessToken: string }) {
@@ -56,7 +57,8 @@ export async function getState(opts: { group: string; accessToken: string }) {
   const got = await getIndexAndTrack(accessToken, game.trackIds, game.current);
   game.current = got.idx;
   const t = got.track!;
-  return { group, index: game.current, total: game.trackIds.length, track: { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } };
+  const contrib = computeContrib(game);
+  return { group, index: game.current, total: game.trackIds.length, track: { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms }, contrib } as any;
 }
 
 export async function submitGuess(opts: { group: string; accessToken: string; userId: string; guess: { title?: string; artist?: string; year?: number } }) {
@@ -82,7 +84,8 @@ export async function nextTrack(opts: { group: string; accessToken: string }): P
   const got = await getIndexAndTrack(accessToken, game.trackIds, start);
   game.current = got.idx;
   const t = got.track;
-  return { index: game.current, total: game.trackIds.length, track: t ? { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } : undefined };
+  const contrib = computeContrib(game);
+  return { index: game.current, total: game.trackIds.length, track: t ? { id: t.id, preview_url: t.preview_url, album: t.album, duration_ms: t.duration_ms } : undefined, contrib } as any;
 }
 
 export async function prevTrack(opts: { group: string; accessToken: string }): Promise<{ index: number; total: number; track?: Pick<SimpleTrack, 'id' | 'preview_url' | 'album' | 'duration_ms'> }> {
@@ -122,4 +125,15 @@ export function getScores(group: string) {
   const game = games.get(group);
   if (!game) return {} as Record<string, number>;
   return Object.fromEntries(game.scores.entries());
+}
+
+function computeContrib(game: Game): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const id of game.trackIds) {
+    const attrib = game.attributions[id];
+    if (!attrib || !attrib.sources.length) continue;
+    const primary = attrib.sources[0].userId;
+    counts[primary] = (counts[primary] || 0) + 1;
+  }
+  return counts;
 }
