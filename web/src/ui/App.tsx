@@ -283,123 +283,27 @@ export function App() {
       <div className="container mx-auto px-6 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent mb-2">
-              🎵 Beat Battle
-            </h1>
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl px-4 py-2 inline-block">
-              <p className="text-slate-300">Group: <code className="text-green-400 font-mono font-bold text-lg">{group}</code></p>
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start mb-8 gap-4">
+            <div className="text-center lg:flex-1 order-1 lg:order-1">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+                🎵 Beat Battle
+              </h1>
             </div>
-          </div>
-          {/* Sharing Section */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <span className="text-2xl mr-2">🔗</span>
-              Share Game
-            </h3>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex-1 min-w-0">
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Game Code</label>
-                  <div className="flex items-center gap-2">
-                    <code className="bg-slate-900/70 text-green-400 font-mono text-lg font-bold px-3 py-2 rounded-lg border border-slate-600">
-                      {group}
-                    </code>
-                    <button
-                      title="Copy group code"
-                      className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium"
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(group);
-                        setToast('Game code copied');
-                        setTimeout(() => setToast(null), 2000);
-                      }}
-                    >
-                      📋 Copy
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 flex-wrap">
-                <button
-                  className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
-                  onClick={() => setQrVisible((v) => !v)}
-                >
-                  {qrVisible ? '🙈 Hide QR' : '📱 Show QR'}
-                </button>
-                <div className="flex-1 min-w-0 flex gap-2">
-                  <input
-                    readOnly
-                    value={shareLink}
-                    className="flex-1 bg-slate-900/70 border border-slate-600 text-slate-300 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                  />
-                  <button
-                    title="Copy join link"
-                    className="bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium whitespace-nowrap"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(shareLink);
-                      setToast('Join link copied');
-                      setTimeout(() => setToast(null), 2000);
-                    }}
-                  >
-                    🔗 Copy Link
-                  </button>
-                </div>
-              </div>
-            </div>
-            {qrVisible && (
-              <div className="mt-6 flex flex-col items-center">
-                <div className="bg-white p-4 rounded-xl shadow-lg">
-                  {qrDataUrl ? (
-                    <img src={qrDataUrl} alt="Join QR" width={200} height={200} className="rounded-lg" />
-                  ) : (
-                    <div className="w-50 h-50 bg-slate-200 rounded-lg flex items-center justify-center">
-                      <span className="text-slate-500">Generating QR…</span>
-                    </div>
-                  )}
-                </div>
-                {window.location.hostname === '127.0.0.1' && (
-                  <div className="mt-3 text-amber-400 text-sm text-center bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
-                    ⚠️ 127.0.0.1 works only on this device. For others on your network, set WEB_URL and open the app using your LAN IP.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Authentication Section */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <span className="text-2xl mr-2">🎧</span>
-              Spotify Connection
-            </h3>
-
-            {!me ? (
-              <div className="text-center">
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
-                  <p className="text-red-400 flex items-center justify-center gap-2">
-                    <span>❌</span>
-                    Not connected to Spotify
-                  </p>
-                </div>
-                <a href={loginUrl}>
-                  <button className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/25">
-                    🚀 Connect with Spotify
-                  </button>
-                </a>
-              </div>
-            ) : (
-              <div>
-                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-4">
-                  <p className="text-green-400 flex items-center gap-2">
-                    <span>✅</span>
+            
+            {/* User Info - Top Right on desktop, below title on mobile */}
+            {me && (
+              <div className="flex items-center justify-center lg:justify-end gap-3 order-2 lg:order-2">
+                <div className="text-center lg:text-right">
+                  <div className="text-green-400 text-sm font-medium flex items-center justify-center lg:justify-end gap-2">
                     Connected as <strong className="text-white">{me.name}</strong>
-                    <span className="text-slate-400">({me.id})</span>
-                  </p>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${me.role === 'host' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
+                      {me.role === 'host' ? '👑 Host' : '🎮 Player'}
+                    </span>
+                  </div>
+                  <div className="text-slate-400 text-xs">({me.id})</div>
                 </div>
-                <button
-                  className="bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                <button 
+                  className="bg-red-600 hover:bg-red-500 text-white font-medium py-1.5 px-3 rounded-lg transition-colors text-sm"
                   onClick={async () => {
                     try {
                       await fetch('/api/logout', {
@@ -431,23 +335,92 @@ export function App() {
               </div>
             )}
           </div>
+          {/* Sharing Section */}
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+              <span className="text-2xl mr-2">🔗</span>
+              Share Game
+            </h3>
 
-          {me && (
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
-              <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
-                <span className="text-2xl mr-2">{me.role === 'host' ? '👑' : '🎮'}</span>
-                Your Role
-              </h3>
-              <div className={`rounded-xl p-4 ${me.role === 'host' ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-blue-500/10 border border-blue-500/30'}`}>
-                <div className="flex items-center gap-3">
-                  <strong className="text-white text-lg">{me.name}</strong>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${me.role === 'host' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
-                    {me.role === 'host' ? '👑 Host' : '🎮 Player'}
-                  </span>
+            <div className="flex items-end gap-3 flex-wrap">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Game Code</label>
+                <code className="bg-slate-900/70 text-green-400 font-mono text-lg font-bold px-3 py-2 rounded-lg border border-slate-600 block">
+                  {group}
+                </code>
+              </div>
+              <button
+                title="Copy group code"
+                className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium h-fit"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(group);
+                  setToast('Game code copied');
+                  setTimeout(() => setToast(null), 2000);
+                }}
+              >
+                📋 Copy
+              </button>
+              <button
+                className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium h-fit"
+                onClick={() => setQrVisible((v) => !v)}
+              >
+                {qrVisible ? '🙈 Hide QR' : '📱 Show QR'}
+              </button>
+              <button
+                title="Copy invitation link"
+                className="bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium h-fit"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(shareLink);
+                  setToast('Invitation link copied');
+                  setTimeout(() => setToast(null), 2000);
+                }}
+              >
+                🔗 Copy Invitation Link
+              </button>
+            </div>
+            {qrVisible && (
+              <div className="mt-6 flex flex-col items-center">
+                <div className="bg-white p-4 rounded-xl shadow-lg">
+                  {qrDataUrl ? (
+                    <img src={qrDataUrl} alt="Join QR" width={200} height={200} className="rounded-lg" />
+                  ) : (
+                    <div className="w-50 h-50 bg-slate-200 rounded-lg flex items-center justify-center">
+                      <span className="text-slate-500">Generating QR…</span>
+                    </div>
+                  )}
                 </div>
+                {window.location.hostname === '127.0.0.1' && (
+                  <div className="mt-3 text-amber-400 text-sm text-center bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                    ⚠️ 127.0.0.1 works only on this device. For others on your network, set WEB_URL and open the app using your LAN IP.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Login Section - Only show if not authenticated */}
+          {!me && (
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                <span className="text-2xl mr-2">🎧</span>
+                Spotify Connection Required
+              </h3>
+              <div className="text-center">
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
+                  <p className="text-red-400 flex items-center justify-center gap-2">
+                    <span>❌</span>
+                    Not connected to Spotify
+                  </p>
+                </div>
+                <a href={loginUrl}>
+                  <button className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/25">
+                    🚀 Connect with Spotify
+                  </button>
+                </a>
               </div>
             </div>
           )}
+
 
           {me && !members?.some(m => m.id === me.id || m.id === `${me.id}#participant`) && (
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">
@@ -687,40 +660,6 @@ export function App() {
             </div>
           )}
 
-      {/* Mini player bar */}
-      {isHost && (
-      <div className="fixed left-0 right-0 bottom-0 bg-gray-900 text-white px-3 py-2 flex items-center gap-3">
-        <button onClick={() => fetchPlayablePrev().then(() => transferPlaybackToPlayer()).catch(() => {})} className="bg-gray-800 text-white border-0 px-2.5 py-1.5 rounded">
-          ⏮
-        </button>
-        <button onClick={() => togglePlay()} className="bg-green-500 text-black border-0 px-2.5 py-1.5 rounded">
-          {sdkState?.paused ? 'Play' : 'Pause'}
-        </button>
-        <button onClick={() => fetchPlayableNext().then(() => transferPlaybackToPlayer()).catch(() => {})} className="bg-gray-800 text-white border-0 px-2.5 py-1.5 rounded">
-          ⏭
-        </button>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs opacity-80">Vol</span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={volume}
-            onChange={async (e) => {
-              const v = Number(e.target.value);
-              setVol(v);
-              await setVolume(v / 100);
-            }}
-          />
-        </div>
-        <div className="overflow-hidden text-ellipsis whitespace-nowrap flex-1">
-          <span>{sdkState ? 'Now Playing' : 'Ready'}</span>
-        </div>
-        <div className="tabular-nums">
-          {formatDuration(sdkState?.position || 0)} / {formatDuration(sdkState?.duration || state?.track?.duration_ms)}
-        </div>
-      </div>
-      )}
 
           {isHost && (
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 mb-6 shadow-xl">

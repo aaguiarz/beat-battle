@@ -60,7 +60,7 @@ app.use(
     keys: [process.env.SESSION_SECRET || 'dev-secret'],
     sameSite: 'lax',
     httpOnly: true,
-    secure: true, // Always secure since we trust proxy in Railway
+    secure: isRailway, // Secure only in production (Railway), not in local development
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   })
 );
@@ -71,6 +71,19 @@ app.get('/health', (_req, res) => {
 
 app.get('/api/version', (_req, res) => {
   res.json({ name: 'beat-battle-server', version: '0.0.1' });
+});
+
+// Debug endpoint to check session and cookies
+app.get('/api/debug/session', (req, res) => {
+  console.log('[Debug] Raw cookies:', req.headers.cookie);
+  console.log('[Debug] Session object:', req.session);
+  console.log('[Debug] Session keys:', Object.keys(req.session || {}));
+  res.json({
+    hasSession: !!req.session,
+    sessionKeys: Object.keys(req.session || {}),
+    rawCookies: req.headers.cookie,
+    sessionData: req.session
+  });
 });
 
 // Build the Spotify authorization URL
@@ -210,9 +223,13 @@ app.get('/api/me', async (req, res) => {
   try {
     console.log('[Me] Request - Session:', req.session);
     console.log('[Me] Request - Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('[Me] Session keys:', Object.keys(req.session || {}));
+    console.log('[Me] Raw session data:', req.session);
+    
     const access = req.session?.tokens?.access_token;
     if (!access) {
-      console.log('[Me] No access token found in session');
+      console.log('[Me] No access token found in session. Session object:', req.session);
+      console.log('[Me] Session tokens:', req.session?.tokens);
       return res.status(401).json({ error: 'Not authenticated' });
     }
     const me = await getMe(access);
@@ -241,9 +258,13 @@ app.get('/api/me', async (req, res) => {
 app.get('/api/token', (req, res) => {
   console.log('[Token] Request - Session:', req.session);
   console.log('[Token] Request - Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('[Token] Session keys:', Object.keys(req.session || {}));
+  console.log('[Token] Raw session data:', req.session);
+  
   const access = req.session?.tokens?.access_token;
   if (!access) {
-    console.log('[Token] No access token found in session');
+    console.log('[Token] No access token found in session. Session object:', req.session);
+    console.log('[Token] Session tokens:', req.session?.tokens);
     return res.status(401).json({ error: 'Not authenticated' });
   }
   res.json({ access_token: access });
