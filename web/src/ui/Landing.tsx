@@ -1,6 +1,5 @@
 import React from 'react';
 import { HeroSection } from './components/HeroSection';
-import { RequirementsCard } from './components/RequirementsCard';
 import { ActionCard } from './components/ActionCard';
 import { GameCodeInput } from './components/GameCodeInput';
 import { useGameJoin } from '../hooks/useGameJoin';
@@ -14,7 +13,6 @@ export function Landing() {
       <div className="container mx-auto px-6 py-12">
         <div className="max-w-4xl mx-auto">
           <HeroSection />
-          <RequirementsCard />
 
           {/* Action Cards */}
           <div className="grid lg:grid-cols-2 gap-6 mb-8">
