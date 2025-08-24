@@ -1,13 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { playTrackId, transferPlaybackToPlayer, subscribeToPlayerState, getThisDevice, togglePlay, setVolume, getVolume } from '../spotify/player';
 import QRCode from 'qrcode';
+import { Landing } from './Landing';
 
 export function App() {
   const [group, setGroup] = useState('');
-  const [me, setMe] = useState<{ id: string; name: string } | null>(null);
+  const [me, setMe] = useState<{ id: string; name: string; role?: 'host' | 'player' } | null>(null);
   const [members, setMembers] = useState<Array<{ id: string; role: 'host' | 'player'; name: string; avatar?: string }> | null>(null);
   const [state, setState] = useState<any>(null);
-  const [answer, setAnswer] = useState<null | { title: string; artist: string; year: number }>(null);
+  const [answer, setAnswer] = useState<null | {
+    title: string;
+    artist: string;
+    year: number;
+    attribution?: {
+      sources: Array<{
+        userId: string;
+        userName: string;
+        sourceType: 'liked' | 'recent' | 'playlist' | 'top_tracks';
+        sourceDetail?: string;
+      }>;
+    };
+  }>(null);
   const [judgement, setJudgement] = useState({ titleOk: false, artistOk: false, yearOk: false });
   const [lastPoints, setLastPoints] = useState<number | null>(null);
   const [revealError, setRevealError] = useState<string | null>(null);
@@ -15,12 +28,13 @@ export function App() {
   const [deviceInfo, setDeviceInfo] = useState<{ name: string; is_active: boolean } | null>(null);
   const [sdkState, setSdkState] = useState<any>(null);
   const [volume, setVol] = useState<number>(80);
-  const [view, setView] = useState<'landing' | 'lobby'>('landing');
-  const [joinCode, setJoinCode] = useState('');
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [qrVisible, setQrVisible] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string>('');
   const [toast, setToast] = useState<string | null>(null);
+  const [songPreference, setSongPreference] = useState<{ includeLiked: boolean; includeRecent: boolean; includePlaylist: boolean; playlistId?: string }>({ includeLiked: true, includeRecent: false, includePlaylist: false });
+  const [playlists, setPlaylists] = useState<Array<{ id: string; name: string; tracks: { total: number } }> | null>(null);
   const isHost = React.useMemo(() => me?.role === 'host', [me]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   function formatDuration(ms?: number) {
@@ -91,16 +105,47 @@ export function App() {
     };
   }, []);
 
+  // Auto-fetch playlists when user is authenticated
+  useEffect(() => {
+    if (me) {
+      fetchPlaylists();
+    }
+  }, [me]);
+
+  // Handle URL path changes
+  useEffect(() => {
+    const handlePathChange = () => {
+      setCurrentPath(window.location.pathname);
+    };
+
+    window.addEventListener('popstate', handlePathChange);
+    return () => window.removeEventListener('popstate', handlePathChange);
+  }, []);
+
   // On load: detect auth redirect and/or existing session
   useEffect(() => {
     const url = new URL(window.location.href);
     const authed = url.searchParams.get('authed');
     const groupParam = url.searchParams.get('group');
     const autojoin = url.searchParams.get('autojoin') === '1';
+    const created = url.searchParams.get('created') === '1';
     const connect = url.searchParams.get('connect') === '1';
+    const error = url.searchParams.get('error');
+
+    if (error) {
+      if (error === 'create_failed') {
+        alert('Failed to create game. Please try again.');
+      } else if (error === 'invalid_group') {
+        alert('Invalid group code. Please check the code and try again.');
+      }
+    }
+
     if (groupParam) {
       setGroup(groupParam);
-      setView('lobby');
+      if (created) {
+        setToast('Game created successfully! Select your music preferences.');
+        setTimeout(() => setToast(null), 3000);
+      }
     }
 
     async function checkMe() {
@@ -111,7 +156,11 @@ export function App() {
           setMe(data);
           if (!group && data.group) {
             setGroup(data.group);
-            setView('lobby');
+            // Navigate to /game if we have a group but we're not already there
+            if (window.location.pathname !== '/game') {
+              window.history.pushState({}, '', '/game');
+              setCurrentPath('/game');
+            }
           }
         }
       } catch {}
@@ -136,7 +185,9 @@ export function App() {
       url.searchParams.delete('authed');
       url.searchParams.delete('group');
       url.searchParams.delete('autojoin');
+      url.searchParams.delete('created');
       url.searchParams.delete('connect');
+      url.searchParams.delete('error');
       const search = url.searchParams.toString();
       window.history.replaceState({}, '', url.pathname + (search ? `?${search}` : ''));
     } else {
@@ -145,7 +196,9 @@ export function App() {
       // If instructed to connect, redirect to Spotify login carrying group & return params
       if (connect) {
         const stateVal = (groupParam || group) ? `group:${encodeURIComponent(groupParam || group)}` : 'mm';
-        window.location.href = `/auth/login?state=${stateVal}`;
+        // If connecting with a group parameter, assume they're joining as a player unless it's a new group
+        const hostParam = groupParam ? '' : '&host=true';
+        window.location.href = `/auth/login?state=${stateVal}${hostParam}`;
       }
     }
   }, []);
@@ -168,76 +221,46 @@ export function App() {
     return () => iv && clearInterval(iv);
   }, [group]);
 
-  function randomGroup() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let s = '';
-    for (let i = 0; i < 12; i++) s += chars[Math.floor(Math.random() * chars.length)];
-    return s;
+  async function fetchPlaylists() {
+    try {
+      const r = await fetch('/api/playlists', { credentials: 'include' });
+      if (r.ok) {
+        const data = await r.json();
+        setPlaylists(data.playlists || []);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch playlists:', e);
+    }
   }
-  function isValidGroupName(s: string) {
-    return /^[A-Za-z0-9]{12}$/.test(s);
-  }
+
 
   const loginUrl = useMemo(() => {
     const state = group ? `group:${encodeURIComponent(group)}` : 'mm';
-    return `/auth/login?state=${state}`;
-  }, [group]);
+    // Check if user would be a host (first in group or current host)
+    const wouldBeHost = !members || members.length === 0 || members.some(m => m.id === me?.id && m.role === 'host');
+    return `/auth/login?state=${state}${wouldBeHost ? '&host=true' : ''}`;
+  }, [group, members, me]);
 
-  // Build shareable link and QR when in lobby with a group
+  // Build shareable link and QR when in game page with a group
   useEffect(() => {
-    if (!group || view !== 'lobby') return;
+    if (!group || currentPath !== '/game') return;
     const origin = window.location.origin; // Use current host/port
     const link = `${origin}/game?group=${encodeURIComponent(group)}&autojoin=1&connect=1`;
     setShareLink(link);
     if (qrVisible) {
       QRCode.toDataURL(link, { width: 256, margin: 1 }).then(setQrDataUrl).catch(() => setQrDataUrl(null));
     }
-  }, [group, view, qrVisible]);
+  }, [group, currentPath, qrVisible]);
 
-  if (view === 'landing') {
-    return (
-      <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24, maxWidth: 720 }}>
-        <h1>Musica Maestro</h1>
-        <p>
-          A party game powered by Spotify: create a shared playlist from everyone’s tastes,
-          play songs, and score points by identifying the Title (+1), Artist (+1), and Year (+5).
-          The host needs Spotify Premium to play full tracks in the browser; other players do not.
-        </p>
-        <div style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
-          <button onClick={() => {
-            const code = randomGroup();
-            setGroup(code);
-            setView('lobby');
-          }}>Create New Game</button>
-          <div>
-            <input
-              placeholder="Enter 12-char group code"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              maxLength={12}
-              style={{ marginRight: 8 }}
-            />
-            <button onClick={() => {
-              if (isValidGroupName(joinCode)) {
-                setGroup(joinCode);
-                setView('lobby');
-              } else {
-                alert('Group names must be 12 alphanumeric characters.');
-              }
-            }}>Join Existing Game</button>
-          </div>
-        </div>
-        <div style={{ marginTop: 16, color: '#555', fontSize: 14 }}>
-          Tip: Share the 12-character group code with friends so they can join.
-        </div>
-      </div>
-    );
+  if (currentPath === '/') {
+    return <Landing />;
   }
 
-  return (
+  if (currentPath === '/game') {
+    return (
     <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24, maxWidth: 720 }}>
       <h1>Musica Maestro</h1>
-      <p>Group: <strong>{group}</strong>. Host needs Premium; others don’t.</p>
+      <p>Group: <strong>{group}</strong></p>
       <section style={{ marginTop: 8, color: '#555' }}>
         Share this code with your friends to join: <code style={{ fontWeight: 700 }}>{group}</code>
         <button title="Copy group code" style={{ marginLeft: 8 }} onClick={async () => {
@@ -269,10 +292,41 @@ export function App() {
       </section>
 
       <section style={{ marginTop: 24 }}>
-        <a href={loginUrl}>
-          <button>{me ? 'Reconnect Spotify' : 'Connect with Spotify'}</button>
-        </a>
-        <button style={{ marginLeft: 12 }} onClick={() => setView('landing')}>Back to Landing</button>
+        {!me ? (
+          <a href={loginUrl}>
+            <button>Connect with Spotify</button>
+          </a>
+        ) : (
+          <button onClick={async () => {
+            try {
+              // Logout from the app
+              await fetch('/api/logout', {
+                method: 'POST',
+                credentials: 'include'
+              });
+
+              // Clear local state
+              setMe(null);
+              setMembers(null);
+              setGroup('');
+              setPlaylists(null);
+              setSongPreference({ includeLiked: true, includeRecent: false, includePlaylist: false });
+
+              // Go back to root page
+              window.history.pushState({}, '', '/');
+              setCurrentPath('/');
+
+            } catch (e) {
+              console.error('Logout failed:', e);
+              // Still clear local state and go to landing even if API call fails
+              setMe(null);
+              setMembers(null);
+              setGroup('');
+              window.history.pushState({}, '', '/');
+              setCurrentPath('/');
+            }
+          }}>Logout</button>
+        )}
       </section>
 
       <section style={{ marginTop: 12, color: me ? '#0a7d2b' : '#a00' }}>
@@ -289,20 +343,110 @@ export function App() {
         </section>
       )}
 
-      <section style={{ marginTop: 24 }}>
-        <button disabled={!me || !group.trim() || !/^[A-Za-z0-9]{12}$/.test(group)} onClick={async () => {
-          const r = await fetch('/api/lobby/join', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ group })
-          });
-          const data = await r.json();
-          setMembers(data.members || null);
-          try {
-            const rm = await fetch('/api/me', { credentials: 'include' });
-            if (rm.ok) setMe(await rm.json());
-          } catch {}
-        }}>Join lobby</button>
-      </section>
+      {me && !members?.some(m => m.id === me.id || m.id === `${me.id}#participant`) && (
+        <section style={{ marginTop: 24 }}>
+          <div style={{
+            padding: 16,
+            border: '1px solid #eee',
+            borderRadius: 8,
+            background: '#f9f9f9'
+          }}>
+            <h4 style={{ margin: '0 0 12px 0' }}>Choose your song sources for the game:</h4>
+            <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#666' }}>
+              You can select multiple sources. Your songs will be combined for the game.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={songPreference.includeLiked}
+                  onChange={(e) => setSongPreference({ ...songPreference, includeLiked: e.target.checked })}
+                />
+                <span>My liked songs</span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={songPreference.includeRecent}
+                  onChange={(e) => setSongPreference({ ...songPreference, includeRecent: e.target.checked })}
+                />
+                <span>My recently played tracks</span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={songPreference.includePlaylist}
+                  onChange={(e) => setSongPreference({
+                    ...songPreference,
+                    includePlaylist: e.target.checked,
+                    playlistId: e.target.checked ? (playlists?.[0]?.id || songPreference.playlistId) : undefined
+                  })}
+                />
+                <span>A specific playlist</span>
+              </label>
+
+              {songPreference.includePlaylist && playlists && (
+                <select
+                  value={songPreference.playlistId || ''}
+                  onChange={(e) => setSongPreference({ ...songPreference, playlistId: e.target.value })}
+                  style={{ marginLeft: 24, padding: 4, minWidth: 250 }}
+                >
+                  {playlists.map(playlist => (
+                    <option key={playlist.id} value={playlist.id}>
+                      {playlist.name} ({playlist.tracks.total} tracks)
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {!playlists && songPreference.includePlaylist && (
+                <div style={{ marginLeft: 24, fontSize: 14, color: '#666' }}>
+                  Loading playlists...
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+              <button
+                onClick={async () => {
+                  try {
+                    const r = await fetch('/api/lobby/join', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ group, preference: songPreference })
+                    });
+                    const data = await r.json();
+                    if (r.ok) {
+                      setMembers(data.members || null);
+                      setToast('Successfully joined the game!');
+                      setTimeout(() => setToast(null), 2000);
+                      try {
+                        const rm = await fetch('/api/me', { credentials: 'include' });
+                        if (rm.ok) setMe(await rm.json());
+                      } catch {}
+                    } else {
+                      alert(`Failed to join game: ${data.error || 'Unknown error'}`);
+                    }
+                  } catch (e) {
+                    console.error('Failed to join lobby:', e);
+                    alert('Failed to join game. Please try again.');
+                  }
+                }}
+                disabled={
+                  (!songPreference.includeLiked && !songPreference.includeRecent && !songPreference.includePlaylist) ||
+                  (songPreference.includePlaylist && !songPreference.playlistId)
+                }
+              >
+                Join Game
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
 
       {members && (
         <section style={{ marginTop: 12 }}>
@@ -363,10 +507,6 @@ export function App() {
             } catch {}
           }}>Start game</button>
           <button style={{ marginLeft: 12 }} disabled={!me || !group.trim()} onClick={async () => {
-            const r = await fetch(`/api/game/${encodeURIComponent(group)}/state`);
-            setState(await r.json());
-          }}>Refresh state</button>
-          <button style={{ marginLeft: 12 }} disabled={!me || !group.trim()} onClick={async () => {
             try { await transferPlaybackToPlayer(); } catch {}
             setAnswer(null);
             setJudgement({ titleOk: false, artistOk: false, yearOk: false });
@@ -385,7 +525,6 @@ export function App() {
         </div>
         <div style={{ marginTop: 4, fontSize: 12, color: deviceInfo?.is_active ? '#1db954' : '#a00' }}>
           Device: {deviceInfo?.name || 'Web Player'} — {deviceInfo?.is_active ? 'active' : 'inactive'}
-          <button style={{ marginLeft: 8 }} onClick={() => transferPlaybackToPlayer()}>Make active here</button>
         </div>
         {state?.index !== undefined && state?.total !== undefined && (
           <div style={{ marginTop: 4, fontSize: 12, color: '#555' }}>
@@ -461,15 +600,6 @@ export function App() {
           <label><input type="checkbox" checked={judgement.artistOk} onChange={(e) => setJudgement({ ...judgement, artistOk: e.target.checked })} /> Artist correct (+1)</label>
           <label><input type="checkbox" checked={judgement.yearOk} onChange={(e) => setJudgement({ ...judgement, yearOk: e.target.checked })} /> Year correct (+5)</label>
 
-          <button onClick={async () => {
-            const r = await fetch(`/api/game/${encodeURIComponent(group)}/judge`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(judgement),
-              credentials: 'include'
-            });
-            const data = await r.json();
-            if (data?.points !== undefined) setLastPoints(data.points);
-          }} disabled={!me || !group.trim()}>Submit result</button>
         </div>
         {answer && (
           <div style={{
@@ -493,6 +623,23 @@ export function App() {
               <div style={{ opacity: 0.85, marginTop: 2 }}>{answer.artist}</div>
               <div style={{ opacity: 0.7, marginTop: 2 }}>Album: {state?.track?.album?.name || '—'}</div>
               <div style={{ opacity: 0.7, marginTop: 2 }}>Year: {answer.year} · Duration: {formatDuration(state?.track?.duration_ms)}</div>
+
+              {answer.attribution && (
+                <div style={{ marginTop: 8, padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: '#1db954' }}>Song Sources:</div>
+                  {answer.attribution.sources.map((source, idx) => (
+                    <div key={idx} style={{ fontSize: 11, opacity: 0.9, marginBottom: 2 }}>
+                      <strong>{source.userName}</strong> - {
+                        source.sourceType === 'liked' ? 'Liked Songs' :
+                        source.sourceType === 'recent' ? 'Recently Played' :
+                        source.sourceType === 'playlist' ? (source.sourceDetail || 'Playlist') :
+                        'Top Tracks'
+                      }
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {state?.track?.id && (
                 <a
                   href={`https://open.spotify.com/track/${state.track.id}`}
@@ -519,16 +666,16 @@ export function App() {
       </section>
       )}
 
-      <section style={{ marginTop: 24 }}>
-        <h3>Try scoring API</h3>
-        <pre style={{ background: '#f6f6f6', padding: 12 }}>
-{`POST /api/score
-{
-  "guess": { "title": "...", "artist": "...", "year": 2019 },
-  "actual": { "title": "...", "artist": "...", "year": 2019 }
-}`}
-        </pre>
-      </section>
+    </div>
+    );
+  }
+
+  // 404 fallback
+  return (
+    <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24, maxWidth: 720 }}>
+      <h1>Page Not Found</h1>
+      <p>The page you're looking for doesn't exist.</p>
+      <a href="/" style={{ color: '#1db954' }}>Go back to home</a>
     </div>
   );
 }

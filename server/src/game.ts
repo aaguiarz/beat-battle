@@ -1,4 +1,4 @@
-import { aggregateGroup } from './aggregate.js';
+import { aggregateGroup, type TrackAttribution } from './aggregate.js';
 import { getTracksByIds, type SimpleTrack } from './spotify.js';
 
 type Game = {
@@ -6,6 +6,7 @@ type Game = {
   trackIds: string[];
   current: number; // index into trackIds
   scores: Map<string, number>; // userId -> points
+  attributions: Record<string, TrackAttribution>; // trackId -> attribution
 };
 
 const games = new Map<string, Game>();
@@ -32,10 +33,15 @@ export async function startGame(opts: { group: string; accessToken: string; seed
   if (!game) {
     const agg = await aggregateGroup(group, 120, seed);
     const ids = agg.tracks.map((t) => t.id).filter(Boolean).slice(0, 100);
-    game = { group, trackIds: ids, current: 0, scores: new Map() };
+    console.log(`[Game Debug] Aggregation returned ${agg.tracks.length} tracks, filtered to ${ids.length} IDs`);
+    console.log(`[Game Debug] User contribution:`, Object.keys(agg.byUser).map(uid => `${uid}: ${agg.byUser[uid].length} tracks`));
+    game = { group, trackIds: ids, current: 0, scores: new Map(), attributions: agg.attributions };
     games.set(group, game);
   }
-  if (!game.trackIds.length) throw new Error('No tracks available for this game');
+  if (!game.trackIds.length) {
+    console.log(`[Game Debug] No tracks found for group ${group}. Game state:`, { trackIds: game.trackIds, members: require('./lobby.js').lobby.members(group) });
+    throw new Error('No tracks available for this game - check that users have authenticated and have music preferences set');
+  }
   const got = await getIndexAndTrack(accessToken, game.trackIds, game.current);
   game.current = got.idx;
   const t = got.track;
@@ -99,7 +105,8 @@ export async function getAnswer(opts: { group: string; accessToken: string }) {
   const title = t.name;
   const artist = t.artists[0]?.name || '';
   const year = yearFromRelease(t.album.release_date) || 0;
-  return { title, artist, year, trackId: t.id };
+  const attribution = game.attributions[t.id];
+  return { title, artist, year, trackId: t.id, attribution };
 }
 
 export function judge(opts: { group: string; userId: string; titleOk: boolean; artistOk: boolean; yearOk: boolean }) {

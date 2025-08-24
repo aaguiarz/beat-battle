@@ -1,9 +1,15 @@
 type FetchOptions = { accessToken: string };
 
-async function fetchSpotify<T>(url: string, { accessToken }: FetchOptions): Promise<T> {
+async function fetchSpotify<T>(url: string, { accessToken }: FetchOptions, shouldLog = true): Promise<T> {
+  if (shouldLog && process.env.LOG_SPOTIFY_API_CALLS?.toLowerCase() === 'true') {
+    console.log(`[Spotify API] GET ${url}`);
+  }
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!res.ok) {
     const text = await res.text();
+    if (shouldLog && process.env.LOG_SPOTIFY_API_CALLS?.toLowerCase() === 'true') {
+      console.log(`[Spotify API] ERROR ${res.status}: ${text}`);
+    }
     throw new Error(`Spotify API ${res.status}: ${text}`);
   }
   return (await res.json()) as T;
@@ -47,4 +53,36 @@ export async function getSavedTracks(opts: { accessToken: string; limit?: number
   url.searchParams.set('limit', String(limit));
   url.searchParams.set('offset', String(offset));
   return fetchSpotify<{ items: { added_at: string; track: SimpleTrack }[]; total: number }>(url.toString(), { accessToken });
+}
+
+export type SimplePlaylist = {
+  id: string;
+  name: string;
+  description: string | null;
+  tracks: { total: number };
+  images: { url: string; width: number; height: number }[];
+  owner: { display_name: string; id: string };
+};
+
+export async function getUserPlaylists(opts: { accessToken: string; limit?: number; offset?: number }) {
+  const { accessToken, limit = 50, offset = 0 } = opts;
+  const url = new URL('https://api.spotify.com/v1/me/playlists');
+  url.searchParams.set('limit', String(limit));
+  url.searchParams.set('offset', String(offset));
+  return fetchSpotify<{ items: SimplePlaylist[]; total: number }>(url.toString(), { accessToken });
+}
+
+export async function getPlaylist(opts: { accessToken: string; playlistId: string }) {
+  const { accessToken, playlistId } = opts;
+  const url = new URL(`https://api.spotify.com/v1/playlists/${playlistId}`);
+  url.searchParams.set('fields', 'id,name,description');
+  return fetchSpotify<{ id: string; name: string; description?: string }>(url.toString(), { accessToken });
+}
+
+export async function getPlaylistTracks(opts: { accessToken: string; playlistId: string; limit?: number; offset?: number }) {
+  const { accessToken, playlistId, limit = 50, offset = 0 } = opts;
+  const url = new URL(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`);
+  url.searchParams.set('limit', String(limit));
+  url.searchParams.set('offset', String(offset));
+  return fetchSpotify<{ items: { added_at: string; track: SimpleTrack | null }[]; total: number }>(url.toString(), { accessToken });
 }

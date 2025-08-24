@@ -1,71 +1,254 @@
 import { lobby } from './lobby.js';
 import { store } from './store.js';
-import { getTopTracks, getRecentlyPlayed, getSavedTracks, type SimpleTrack } from './spotify.js';
+import { getTopTracks, getRecentlyPlayed, getSavedTracks, getPlaylistTracks, getPlaylist, type SimpleTrack } from './spotify.js';
 import { weightedSample } from './utils/random.js';
 
-export type Aggregated = { tracks: SimpleTrack[]; byUser: Record<string, string[]> };
+export type TrackAttribution = {
+  trackId: string;
+  sources: Array<{
+    userId: string;
+    userName: string;
+    sourceType: 'liked' | 'recent' | 'playlist' | 'top_tracks';
+    sourceDetail?: string; // playlist name for playlists
+  }>;
+};
+
+export type Aggregated = { 
+  tracks: SimpleTrack[]; 
+  byUser: Record<string, string[]>;
+  attributions: Record<string, TrackAttribution>;
+};
 
 export async function aggregateGroup(group: string, targetCount = 100, seed?: number): Promise<Aggregated> {
   const members = lobby.members(group);
   const byUser: Record<string, string[]> = {};
-  const weight = new Map<string, number>();
+  const attributions: Record<string, TrackAttribution> = {};
+  const userTrackCollections: Array<{ userId: string; userName: string; tracks: Array<{ track: SimpleTrack; sourceType: string; sourceDetail?: string }> }> = [];
+  
+  console.log(`[Aggregation Debug] Group: ${group}, Members: ${members.length}`, members);
+  console.log(`[Aggregation Debug] Users with stored tokens:`, store.getAllStoredUsers());
 
   for (const uid of members) {
-    const tokens = store.getTokens(uid);
-    if (!tokens) continue;
+    const baseUserId = uid.split('#')[0]; // Handle host participants like uid#participant
+    const tokens = store.getTokens(baseUserId);
+    console.log(`[Aggregation Debug] Processing user: ${uid} (base: ${baseUserId}), has tokens: ${!!tokens}`);
+    if (!tokens) {
+      console.log(`[Aggregation Debug] SKIPPING user ${baseUserId} - no tokens found`);
+      continue;
+    }
     const accessToken = tokens.access_token;
+    const userName = store.getName(baseUserId) || baseUserId;
 
-    // Top tracks across ranges with descending weights
-    const [shortTerm, mediumTerm, longTerm] = await Promise.all([
-      getTopTracks({ accessToken, time_range: 'short_term' }),
-      getTopTracks({ accessToken, time_range: 'medium_term' }),
-      getTopTracks({ accessToken, time_range: 'long_term' })
-    ]);
-    const addRanked = (list: SimpleTrack[], factor: number) =>
-      list.forEach((t, idx) => {
-        const w = (list.length - idx) * factor;
-        weight.set(t.id, (weight.get(t.id) || 0) + w);
-      });
-    addRanked(shortTerm, 3);
-    addRanked(mediumTerm, 2);
-    addRanked(longTerm, 1);
-
-    // Recently played (most recent higher)
+    // Get user preference, fallback to default behavior if none set
+    const preference = lobby.getUserPreference(group, baseUserId);
+    console.log(`[Aggregation Debug] User ${baseUserId} preference:`, preference);
+    const userTracksWithSources: Array<{ track: SimpleTrack; sourceType: string; sourceDetail?: string }> = [];
+    
     try {
-      const recent = await getRecentlyPlayed({ accessToken, limit: 50 });
-      recent.items.forEach((item, idx) => {
-        const w = (recent.items.length - idx) * 1.5; // mild boost
-        weight.set(item.track.id, (weight.get(item.track.id) || 0) + w);
-      });
-    } catch {}
+      console.log(`[Aggregation Debug] User ${baseUserId} preference check:`, { preference, hasPreference: !!preference });
+      if (preference && (preference.includeLiked || preference.includeRecent || preference.includePlaylist)) {
+        console.log(`[Aggregation Debug] User ${baseUserId} using preferences:`, preference);
+        
+        // Handle liked songs
+        if (preference.includeLiked) {
+          if (process.env.LOG_SPOTIFY_API_CALLS?.toLowerCase() === 'true') {
+            console.log(`[Aggregation] Fetching liked songs for user ${baseUserId}`);
+          }
+          const saved1 = await getSavedTracks({ accessToken, limit: 50, offset: 0 });
+          const saved2 = await getSavedTracks({ accessToken, limit: 50, offset: 50 });
+          const likedTracks = [...saved1.items, ...saved2.items].map(item => item.track);
+          
+          likedTracks.forEach((track) => {
+            userTracksWithSources.push({ track, sourceType: 'liked' });
+          });
+        }
+        
+        // Handle recent tracks
+        if (preference.includeRecent) {
+          if (process.env.LOG_SPOTIFY_API_CALLS?.toLowerCase() === 'true') {
+            console.log(`[Aggregation] Fetching recently played tracks for user ${baseUserId}`);
+          }
+          const recent = await getRecentlyPlayed({ accessToken, limit: 50 });
+          const recentTracks = recent.items.map(item => item.track);
+          
+          recentTracks.forEach((track) => {
+            userTracksWithSources.push({ track, sourceType: 'recent' });
+          });
+        }
+        
+        // Handle playlist
+        if (preference.includePlaylist && preference.playlistId) {
+          if (process.env.LOG_SPOTIFY_API_CALLS?.toLowerCase() === 'true') {
+            console.log(`[Aggregation] Fetching playlist ${preference.playlistId} for user ${baseUserId}`);
+          }
+          
+          // Fetch playlist info to get the name
+          const playlistInfo = await getPlaylist({ accessToken, playlistId: preference.playlistId });
+          const playlistName = playlistInfo.name || `Playlist ${preference.playlistId}`;
+          
+          const playlistTracks1 = await getPlaylistTracks({ accessToken, playlistId: preference.playlistId, limit: 50, offset: 0 });
+          const playlistTracks2 = await getPlaylistTracks({ accessToken, playlistId: preference.playlistId, limit: 50, offset: 50 });
+          const allPlaylistItems = [...playlistTracks1.items, ...playlistTracks2.items];
+          const playlistTracks = allPlaylistItems.filter(item => item.track !== null).map(item => item.track!);
+          
+          playlistTracks.forEach((track) => {
+            userTracksWithSources.push({ track, sourceType: 'playlist', sourceDetail: playlistName });
+          });
+        }
+        
+      } else {
+        // Fallback: use top tracks if no preference or invalid preference
+        console.log(`[Aggregation Debug] User ${baseUserId} using fallback (top tracks)`);
+        if (process.env.LOG_SPOTIFY_API_CALLS?.toLowerCase() === 'true') {
+          console.log(`[Aggregation] Using top tracks fallback for user ${baseUserId}`);
+        }
+        const [shortTerm, mediumTerm, longTerm] = await Promise.all([
+          getTopTracks({ accessToken, time_range: 'short_term' }),
+          getTopTracks({ accessToken, time_range: 'medium_term' }),
+          getTopTracks({ accessToken, time_range: 'long_term' })
+        ]);
+        
+        [...shortTerm, ...mediumTerm, ...longTerm].forEach((track) => {
+          userTracksWithSources.push({ track, sourceType: 'top_tracks' });
+        });
+      }
+    } catch (error) {
+      if (process.env.LOG_SPOTIFY_API_CALLS?.toLowerCase() === 'true') {
+        console.log(`[Aggregation] Error fetching tracks for user ${baseUserId}:`, (error as Error).message);
+      }
+      // Continue with next user if this one fails
+      continue;
+    }
 
-    // Saved tracks (liked songs) - prioritize more recently added
-    try {
-      const saved1 = await getSavedTracks({ accessToken, limit: 50, offset: 0 });
-      const saved2 = await getSavedTracks({ accessToken, limit: 50, offset: 50 });
-      const saved = [...saved1.items, ...saved2.items];
-      saved.forEach((item, idx) => {
-        const w = (saved.length - idx) * 1.2;
-        weight.set(item.track.id, (weight.get(item.track.id) || 0) + w);
-      });
-    } catch {}
-
-    // Track provenance per user (optional, keep IDs only)
-    byUser[uid] = Array.from(new Set([
-      ...shortTerm.map(t => t.id),
-      ...mediumTerm.map(t => t.id),
-      ...longTerm.map(t => t.id)
-    ]));
+    // Store user's track collection
+    userTrackCollections.push({ userId: baseUserId, userName, tracks: userTracksWithSources });
+    
+    // Track provenance per user (keep IDs only)
+    byUser[uid] = Array.from(new Set(userTracksWithSources.map(t => t.track.id)));
+    
+    if (process.env.LOG_SPOTIFY_API_CALLS?.toLowerCase() === 'true') {
+      console.log(`[Aggregation] User ${baseUserId} contributed ${byUser[uid].length} unique tracks`);
+    }
   }
 
-  let idsSorted: string[];
+  // Balanced track selection with randomization and attribution tracking
+  const selectedTracks: SimpleTrack[] = [];
+  const trackToAttributionMap = new Map<string, Array<{ userId: string; userName: string; sourceType: string; sourceDetail?: string }>>();
+  
+  // Build attribution map
+  for (const userCollection of userTrackCollections) {
+    for (const { track, sourceType, sourceDetail } of userCollection.tracks) {
+      if (!trackToAttributionMap.has(track.id)) {
+        trackToAttributionMap.set(track.id, []);
+      }
+      trackToAttributionMap.get(track.id)!.push({
+        userId: userCollection.userId,
+        userName: userCollection.userName,
+        sourceType,
+        sourceDetail
+      });
+    }
+  }
+  
+  console.log(`[Aggregation Debug] Found ${trackToAttributionMap.size} unique tracks from ${userTrackCollections.length} users`);
+  
+  if (userTrackCollections.length === 0) {
+    console.log(`[Aggregation Debug] No users with tracks found`);
+    return { tracks: [], byUser: {}, attributions: {} };
+  }
+  
+  // Create a shuffled list of all unique tracks
+  const allUniqueTracksWithAttribution = Array.from(trackToAttributionMap.entries()).map(([trackId, sources]) => {
+    // Find any track object from the sources
+    const track = userTrackCollections
+      .flatMap(uc => uc.tracks)
+      .find(t => t.track.id === trackId)?.track;
+    return { track: track!, sources };
+  });
+  
+  // Shuffle with seed for deterministic randomization
   if (seed !== undefined) {
-    idsSorted = weightedSample(weight, targetCount, seed);
+    // Simple seeded shuffle using the seed
+    let rng = seed;
+    for (let i = allUniqueTracksWithAttribution.length - 1; i > 0; i--) {
+      rng = (rng * 9301 + 49297) % 233280; // Linear congruential generator
+      const j = rng % (i + 1);
+      [allUniqueTracksWithAttribution[i], allUniqueTracksWithAttribution[j]] = 
+        [allUniqueTracksWithAttribution[j], allUniqueTracksWithAttribution[i]];
+    }
   } else {
-    idsSorted = Array.from(weight.entries()).sort((a, b) => b[1] - a[1]).map(([id]) => id);
-    if (idsSorted.length > targetCount) idsSorted = idsSorted.slice(0, targetCount);
+    // Regular shuffle
+    for (let i = allUniqueTracksWithAttribution.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allUniqueTracksWithAttribution[i], allUniqueTracksWithAttribution[j]] = 
+        [allUniqueTracksWithAttribution[j], allUniqueTracksWithAttribution[i]];
+    }
   }
-  // We don’t fetch full track objects here; callers can fetch when needed
-  // but for convenience we can return just ids in byUser; tracks will be fetched in game.
-  return { tracks: idsSorted.map((id) => ({ id } as any)), byUser } as any;
+  
+  // Balance selection: try to get roughly equal contribution from each user
+  const targetPerUser = Math.ceil(targetCount / userTrackCollections.length);
+  const userContributions = new Map<string, number>();
+  
+  // Initialize counters
+  for (const userCollection of userTrackCollections) {
+    userContributions.set(userCollection.userId, 0);
+  }
+  
+  // First pass: select tracks trying to balance between users
+  for (const { track, sources } of allUniqueTracksWithAttribution) {
+    if (selectedTracks.length >= targetCount) break;
+    
+    // Check if any user contributing this track is under their target
+    const canContribute = sources.some(source => 
+      (userContributions.get(source.userId) || 0) < targetPerUser
+    );
+    
+    if (canContribute) {
+      selectedTracks.push(track);
+      
+      // Build attribution for this track
+      attributions[track.id] = {
+        trackId: track.id,
+        sources: sources.map(s => ({
+          userId: s.userId,
+          userName: s.userName,
+          sourceType: s.sourceType as any,
+          sourceDetail: s.sourceDetail
+        }))
+      };
+      
+      // Increment counters for contributing users
+      for (const source of sources) {
+        userContributions.set(source.userId, (userContributions.get(source.userId) || 0) + 1);
+      }
+    }
+  }
+  
+  // Second pass: fill remaining slots if needed
+  if (selectedTracks.length < targetCount) {
+    for (const { track, sources } of allUniqueTracksWithAttribution) {
+      if (selectedTracks.length >= targetCount) break;
+      if (selectedTracks.some(t => t.id === track.id)) continue; // Skip already selected
+      
+      selectedTracks.push(track);
+      attributions[track.id] = {
+        trackId: track.id,
+        sources: sources.map(s => ({
+          userId: s.userId,
+          userName: s.userName,
+          sourceType: s.sourceType as any,
+          sourceDetail: s.sourceDetail
+        }))
+      };
+    }
+  }
+  
+  console.log(`[Aggregation Debug] Final aggregated playlist has ${selectedTracks.length} tracks from ${userTrackCollections.length} users`);
+  console.log(`[Aggregation Debug] User contributions:`, Array.from(userContributions.entries()).map(([userId, count]) => `${userId}: ${count}`));
+  
+  if (process.env.LOG_SPOTIFY_API_CALLS?.toLowerCase() === 'true') {
+    console.log(`[Aggregation] Final aggregated playlist has ${selectedTracks.length} tracks from ${userTrackCollections.length} users`);
+  }
+  
+  return { tracks: selectedTracks, byUser, attributions };
 }
