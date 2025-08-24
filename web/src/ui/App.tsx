@@ -32,7 +32,7 @@ export function App() {
   const [qrVisible, setQrVisible] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string>('');
-  const [toast, setToast] = ucurlseState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [likeBusy, setLikeBusy] = useState(false);
   const [songPreference, setSongPreference] = useState<{ includeLiked: boolean; includeRecent: boolean; includePlaylist: boolean; playlistId?: string }>({ includeLiked: true, includeRecent: false, includePlaylist: false });
   const [playlists, setPlaylists] = useState<Array<{ id: string; name: string; tracks: { total: number } }> | null>(null);
