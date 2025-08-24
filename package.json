@@ -13,6 +13,8 @@
     "lint": "echo 'Add ESLint config and run eslint'",
     "format": "echo 'Add Prettier config and run prettier'",
     "test": "npm run -w server test"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5"
   }
 }
-
