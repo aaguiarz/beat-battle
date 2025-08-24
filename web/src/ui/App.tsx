@@ -25,13 +25,13 @@ export function App() {
   const [songPreference, setSongPreference] = useState<{ includeLiked: boolean; includeRecent: boolean; includePlaylist: boolean; playlistId?: string }>({ includeLiked: true, includeRecent: false, includePlaylist: false });
   const [playlists, setPlaylists] = useState<Array<{ id: string; name: string; tracks: { total: number } }> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  
+
   // Use custom hooks
   const { user: me, logout, refreshUser } = useAuth();
   const { members, state, answer, setAnswer, setMembers, startGame, nextTrack: gameNextTrack, prevTrack: gamePrevTrack, revealAnswer } = useGameState(group);
   const { sdkState, deviceInfo, volume, updateVolume, togglePlayback, activate } = useSpotifyPlayer();
   const { toast, showToast } = useToast();
-  
+
   const isHost = useMemo(() => me?.role === 'host', [me]);
   function formatDuration(ms?: number) {
     if (!ms && ms !== 0) return '—';
@@ -138,7 +138,7 @@ export function App() {
     const created = url.searchParams.get('created') === '1';
     const connect = url.searchParams.get('connect') === '1';
     const error = url.searchParams.get('error');
-    
+
 
     if (error) {
       if (error === 'create_failed') {
@@ -288,8 +288,8 @@ export function App() {
             {/* User Info */}
             {me && (
               <div className="order-2 lg:order-2">
-                <UserSection 
-                  user={me} 
+                <UserSection
+                  user={me}
                   onLogout={async () => {
                     await logout();
                     setGroup('');
@@ -297,7 +297,7 @@ export function App() {
                     setSongPreference({ includeLiked: true, includeRecent: false, includePlaylist: false });
                     window.history.pushState({}, '', '/');
                     setCurrentPath('/');
-                  }} 
+                  }}
                 />
               </div>
             )}
