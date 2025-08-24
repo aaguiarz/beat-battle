@@ -16,8 +16,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT || 4000);
-const BASE_URL = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
-const WEB_URL = process.env.WEB_URL || 'http://127.0.0.1:5173';
+// Auto-detect Railway environment
+const isRailway = process.env.RAILWAY_ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production';
+const BASE_URL = process.env.BASE_URL || (isRailway ? 'https://spot-the-track-production.up.railway.app' : `http://127.0.0.1:${PORT}`);
+const WEB_URL = process.env.WEB_URL || (isRailway ? 'https://spot-the-track-production.up.railway.app' : 'http://127.0.0.1:5173');
 const ALLOW_HOST_AS_PARTICIPANT = String(process.env.ALLOW_HOST_AS_PARTICIPANT || '').toLowerCase() === 'true';
 const LOG_SPOTIFY_API_CALLS = String(process.env.LOG_SPOTIFY_API_CALLS || 'true').toLowerCase() === 'true';
 
@@ -43,7 +45,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 app.use(cors({ 
-  origin: process.env.WEB_URL || 'http://127.0.0.1:5173',
+  origin: WEB_URL,
   credentials: true 
 }));
 app.use(express.json());
