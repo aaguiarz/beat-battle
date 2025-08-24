@@ -51,9 +51,10 @@ app.use(
   cookieSession({
     name: 'mm',
     keys: [process.env.SESSION_SECRET || 'dev-secret'],
-    sameSite: 'none',
+    sameSite: 'lax',
     httpOnly: true,
-    secure: true  // Always require HTTPS for SameSite=None
+    secure: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
   })
 );
 
@@ -105,6 +106,7 @@ app.get('/auth/callback', async (req, res) => {
   const { code, state } = req.query;
   if (!code || typeof code !== 'string') return res.status(400).send('Missing code');
   try {
+    console.log('[OAuth] Starting callback processing...');
     const tokens = await exchangeCodeForToken({
       clientId: process.env.SPOTIFY_CLIENT_ID || '',
       clientSecret: process.env.SPOTIFY_CLIENT_SECRET || '',
@@ -112,10 +114,16 @@ app.get('/auth/callback', async (req, res) => {
       code
     });
     const me = await getMe(tokens.access_token);
+    console.log('[OAuth] Got user info:', me.id);
+    
     if (req.session) {
       req.session.tokens = tokens;
       req.session.user = { id: me.id, display_name: me.display_name || me.id };
+      console.log('[OAuth] Session set successfully');
+    } else {
+      console.error('[OAuth] No session available!');
     }
+    
     const avatar = me.images?.[0]?.url;
     store.saveUser(me.id, me.display_name || me.id, tokens, avatar);
 
