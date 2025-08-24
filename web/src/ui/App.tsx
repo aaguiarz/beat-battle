@@ -32,7 +32,7 @@ export function App() {
   const [navError, setNavError] = useState<string | null>(null);
   const [positionMs, setPositionMs] = useState<number>(0);
   const [durationMs, setDurationMs] = useState<number>(0);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(localStorage.getItem('mm_device_id'));
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [songPreference, setSongPreference] = useState<{ includeLiked: boolean; includeRecent: boolean; includePlaylist: boolean; playlistId?: string }>({ includeLiked: true, includeRecent: false, includePlaylist: false });
   const [playlists, setPlaylists] = useState<Array<{ id: string; name: string; tracks: { total: number } }> | null>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -112,11 +112,6 @@ export function App() {
 
   const handleDeviceSelect = (deviceId: string | null) => {
     setSelectedDeviceId(deviceId);
-    if (deviceId) {
-      localStorage.setItem('mm_device_id', deviceId);
-    } else {
-      localStorage.removeItem('mm_device_id');
-    }
   };
   function formatDuration(ms?: number) {
     if (!ms && ms !== 0) return '—';
@@ -129,9 +124,8 @@ export function App() {
   const handleStartGame = async () => {
     try {
       // If host selected a Connect device, use it; otherwise use Web SDK
-      const chosen = localStorage.getItem('mm_device_id');
-      if (playbackMode === 'connect' && chosen) {
-        try { await transferConnect(chosen, true); } catch {}
+      if (playbackMode === 'connect' && selectedDeviceId) {
+        try { await transferConnect(selectedDeviceId, true); } catch {}
       } else if (playbackMode === 'websdk') {
         await activate();
         await transferPlaybackToPlayer();
@@ -154,9 +148,8 @@ export function App() {
 
   const handleNextTrack = async () => {
     try {
-      const chosen = localStorage.getItem('mm_device_id');
-      if (playbackMode === 'connect' && chosen) {
-        try { await transferConnect(chosen, true); } catch {}
+      if (playbackMode === 'connect' && selectedDeviceId) {
+        try { await transferConnect(selectedDeviceId, true); } catch {}
       } else if (playbackMode === 'websdk') {
         await activate();
         await transferPlaybackToPlayer();
@@ -178,21 +171,20 @@ export function App() {
 
   const handlePause = async () => {
     try {
-      const chosen = localStorage.getItem('mm_device_id');
 
       if (!isPaused) {
         // Pause playback and timer
-        if (playbackMode === 'connect' && chosen) {
-          await pauseConnect(chosen);
+        if (playbackMode === 'connect' && selectedDeviceId) {
+          await pauseConnect(selectedDeviceId);
         } else {
           await pausePlayback();
         }
         pauseGameTimer();
       } else {
         // Resume playback and timer
-        if (playbackMode === 'connect' && chosen) {
+        if (playbackMode === 'connect' && selectedDeviceId) {
           const { resume } = await import('../utils/playback');
-          await resume(chosen);
+          await resume(selectedDeviceId);
         } else {
           const { resumePlayback } = await import('../spotify/player');
           await resumePlayback();
@@ -211,9 +203,8 @@ export function App() {
       }
       setNavError(null);
       await gamePrevTrack();
-      const chosen = localStorage.getItem('mm_device_id');
-      if (playbackMode === 'connect' && chosen) {
-        try { await transferConnect(chosen, true); } catch {}
+      if (playbackMode === 'connect' && selectedDeviceId) {
+        try { await transferConnect(selectedDeviceId, true); } catch {}
       } else if (playbackMode === 'websdk') {
         await transferPlaybackToPlayer();
       }
@@ -235,13 +226,12 @@ export function App() {
   useEffect(() => {
     const id = state?.track?.id as string | undefined;
     if (!id) return;
-    const chosen = localStorage.getItem('mm_device_id');
     (async () => {
       const startMs = 0;
-      if (playbackMode === 'connect' && chosen) {
+      if (playbackMode === 'connect' && selectedDeviceId) {
         try {
-          await transferConnect(chosen, true);
-          await playOnConnect({ deviceId: chosen, trackId: id, positionMs: startMs });
+          await transferConnect(selectedDeviceId, true);
+          await playOnConnect({ deviceId: selectedDeviceId, trackId: id, positionMs: startMs });
           scheduleAutoStop();
         } catch (e) {
           console.warn('Connect playback failed', e);
@@ -256,7 +246,7 @@ export function App() {
         }
       }
     })();
-  }, [state?.track?.id, playbackMode]);
+  }, [state?.track?.id, playbackMode, selectedDeviceId]);
 
   // Update playback time display (Web SDK only; no server polling in Connect mode)
   useEffect(() => {

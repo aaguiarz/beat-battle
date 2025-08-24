@@ -23,7 +23,7 @@ All endpoints use the host session’s access token (stored in the cookie sessio
 ## Web UI
 
 - Component: `web/src/ui/components/HostPlaybackControls.tsx`
-  - Device selector (persisted to `localStorage: mm_device_id`)
+  - Device selector (automatically pre-selects active device, no persistence)
   - Buttons: Refresh, Transfer & Play, Play Current, Pause, Next, Seek 0:00
 - Integration: `web/src/ui/App.tsx`
   - When a device is selected, new round tracks autostart on that device via the server. Falls back to the Web Playback SDK if Connect control fails or no device is selected.
