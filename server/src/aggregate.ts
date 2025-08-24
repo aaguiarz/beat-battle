@@ -54,13 +54,61 @@ export async function aggregateGroup(group: string, targetCount = 100, seed?: nu
           if (process.env.LOG_SPOTIFY_API_CALLS?.toLowerCase() === 'true') {
             console.log(`[Aggregation] Fetching liked songs for user ${baseUserId}`);
           }
-          const saved1 = await getSavedTracks({ accessToken, limit: 50, offset: 0 });
-          const saved2 = await getSavedTracks({ accessToken, limit: 50, offset: 50 });
-          const likedTracks = [...saved1.items, ...saved2.items].map(item => item.track);
           
-          likedTracks.forEach((track) => {
-            userTracksWithSources.push({ track, sourceType: 'liked' });
-          });
+          // First, get total count of saved tracks
+          const initialFetch = await getSavedTracks({ accessToken, limit: 1, offset: 0 });
+          const totalSavedTracks = initialFetch.total;
+          
+          if (totalSavedTracks > 0) {
+            const fetchLimit = 50;
+            const maxTracksToFetch = Math.min(200, totalSavedTracks); // Fetch up to 200 tracks
+            const numBatches = Math.ceil(maxTracksToFetch / fetchLimit);
+            
+            // Generate random offsets to get different subsets each time
+            const offsets: number[] = [];
+            for (let i = 0; i < numBatches; i++) {
+              let randomOffset;
+              if (totalSavedTracks <= maxTracksToFetch) {
+                // If user has fewer tracks than our limit, use sequential offsets
+                randomOffset = i * fetchLimit;
+              } else {
+                // Use random offsets within the available range
+                const maxOffset = totalSavedTracks - fetchLimit;
+                randomOffset = Math.floor(Math.random() * (maxOffset + 1));
+              }
+              offsets.push(randomOffset);
+            }
+            
+            // Remove duplicates and sort offsets
+            const uniqueOffsets = Array.from(new Set(offsets)).sort((a, b) => a - b);
+            
+            // Fetch tracks from different random positions
+            const allLikedTracks: SimpleTrack[] = [];
+            for (const offset of uniqueOffsets) {
+              try {
+                const savedBatch = await getSavedTracks({ 
+                  accessToken, 
+                  limit: fetchLimit, 
+                  offset: offset 
+                });
+                const batchTracks = savedBatch.items.map(item => item.track);
+                allLikedTracks.push(...batchTracks);
+              } catch (error) {
+                console.warn(`[Aggregation] Failed to fetch liked songs at offset ${offset}:`, error);
+              }
+            }
+            
+            // Remove duplicates (in case random offsets overlapped)
+            const uniqueLikedTracks = allLikedTracks.filter((track, index, self) =>
+              index === self.findIndex(t => t.id === track.id)
+            );
+            
+            uniqueLikedTracks.forEach((track) => {
+              userTracksWithSources.push({ track, sourceType: 'liked' });
+            });
+            
+            console.log(`[Aggregation] User ${baseUserId} contributed ${uniqueLikedTracks.length} liked songs from ${totalSavedTracks} total`);
+          }
         }
         
         // Handle recent tracks
