@@ -1,4 +1,4 @@
-import type { SpotifyTokens } from './oauth';
+import type { SpotifyTokens } from './oauth.js';
 
 const tokensByUser = new Map<string, SpotifyTokens>();
 const namesByUser = new Map<string, string>();

@@ -1,5 +1,5 @@
-import { aggregateGroup, type TrackAttribution } from './aggregate';
-import { getTracksByIds, type SimpleTrack } from './spotify';
+import { aggregateGroup, type TrackAttribution } from './aggregate.js';
+import { getTracksByIds, type SimpleTrack } from './spotify.js';
 
 type Game = {
   group: string;
